@@ -3,8 +3,8 @@
 This project will answer natural-language questions about software repositories by
 retrieving relevant source-code context and using it to generate referenced answers.
 
-Repository source-file discovery is implemented. Source loading, document creation,
-chunking, indexing, retrieval, and answer generation are not implemented yet.
+Repository source-file discovery and loading into LangChain Documents are implemented.
+Chunking, indexing, retrieval, and answer generation are not implemented yet.
 
 ## Development setup
 
