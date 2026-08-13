@@ -3,8 +3,8 @@
 This project will answer natural-language questions about software repositories by
 retrieving relevant source-code context and using it to generate referenced answers.
 
-The project is currently at the foundation stage. It contains only package
-scaffolding, development tooling, and an import test; no RAG functionality exists yet.
+Repository source-file discovery is implemented. Source loading, document creation,
+chunking, indexing, retrieval, and answer generation are not implemented yet.
 
 ## Development setup
 
@@ -25,4 +25,3 @@ pytest
 ruff check .
 mypy src
 ```
-

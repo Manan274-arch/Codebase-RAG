@@ -39,6 +39,36 @@ repository
 
 ## Current implementation status
 
-After Prompt 1, only project scaffolding and development tooling exist. There is
-currently no repository ingestion, chunking, embedding model, vector database,
-retriever, or LLM integration.
+Repository source-file discovery is implemented in `src/ingestion/repository.py`.
+Its responsibility is to recursively identify candidate source files while pruning
+version-control metadata, virtual environments, dependency/vendor directories,
+generated build output, caches, coverage output, and editor metadata. Symbolic-link
+directories are not traversed.
+
+Discovery currently recognizes these extensions using case-insensitive matching:
+
+```text
+.py
+.java
+.c .h
+.cc .cpp .cxx .hh .hpp .hxx
+.js .jsx .mjs .cjs
+.ts .tsx
+.go
+.rs
+.cs
+.rb
+.php
+.swift
+.kt .kts
+.scala
+.sh .bash .zsh
+.sql
+```
+
+Results are repository-relative paths sorted deterministically by their POSIX-style
+representation. Discovery relies only on file extensions: files are not read,
+inspected for binary content, parsed, or converted into LangChain Documents.
+
+Chunking, embeddings, a vector database, retrieval, and LLM integration remain
+unimplemented.
