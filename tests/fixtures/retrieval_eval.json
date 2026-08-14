@@ -1,0 +1,92 @@
+[
+  {
+    "query_id": "lex_refresh_validation",
+    "query": "Where is refresh_token validated?",
+    "relevant_chunk_ids": ["backend/auth.py::0"],
+    "category": "lexical"
+  },
+  {
+    "query_id": "lex_invoice_total",
+    "query": "Which function calculates the invoice total?",
+    "relevant_chunk_ids": ["billing/invoice.py::0"],
+    "category": "lexical"
+  },
+  {
+    "query_id": "lex_create_order",
+    "query": "Where is createOrder defined?",
+    "relevant_chunk_ids": ["backend/orders.ts::0"],
+    "category": "lexical"
+  },
+  {
+    "query_id": "lex_payment_failed",
+    "query": "Where is mark_payment_failed implemented?",
+    "relevant_chunk_ids": ["billing/invoice.py::0"],
+    "category": "lexical"
+  },
+  {
+    "query_id": "lex_readiness_status",
+    "query": "Which Java method returns readinessStatus?",
+    "relevant_chunk_ids": ["service/HealthController.java::0"],
+    "category": "lexical"
+  },
+  {
+    "query_id": "semantic_expired_credentials",
+    "query": "Where does the application reject expired credentials?",
+    "relevant_chunk_ids": ["backend/auth.py::0"],
+    "category": "semantic"
+  },
+  {
+    "query_id": "semantic_bill_sum",
+    "query": "What code adds together all charges on a bill?",
+    "relevant_chunk_ids": ["billing/invoice.py::0"],
+    "category": "semantic"
+  },
+  {
+    "query_id": "semantic_store_purchase",
+    "query": "Where is a new purchase saved to storage?",
+    "relevant_chunk_ids": ["backend/orders.ts::0"],
+    "category": "semantic"
+  },
+  {
+    "query_id": "semantic_service_alive",
+    "query": "What controller reports that the service is ready?",
+    "relevant_chunk_ids": ["service/HealthController.java::0"],
+    "category": "semantic"
+  },
+  {
+    "query_id": "semantic_send_purchase",
+    "query": "What browser code transmits a purchase to the server?",
+    "relevant_chunk_ids": ["frontend/api.ts::0"],
+    "category": "semantic"
+  },
+  {
+    "query_id": "relationship_order_client",
+    "query": "Which frontend code calls the endpoint that creates an order?",
+    "relevant_chunk_ids": ["frontend/api.ts::0"],
+    "category": "relationship"
+  },
+  {
+    "query_id": "relationship_order_backend",
+    "query": "Which backend chunk handles the order creation endpoint?",
+    "relevant_chunk_ids": ["backend/orders.ts::0"],
+    "category": "relationship"
+  },
+  {
+    "query_id": "relationship_payment_client",
+    "query": "Which client code requests an invoice payment status?",
+    "relevant_chunk_ids": ["frontend/api.ts::0"],
+    "category": "relationship"
+  },
+  {
+    "query_id": "relationship_health_route",
+    "query": "Where is the GET health endpoint defined?",
+    "relevant_chunk_ids": ["service/HealthController.java::0"],
+    "category": "relationship"
+  },
+  {
+    "query_id": "relationship_token_owner",
+    "query": "Which authentication chunk owns refresh credential validation?",
+    "relevant_chunk_ids": ["backend/auth.py::0"],
+    "category": "relationship"
+  }
+]

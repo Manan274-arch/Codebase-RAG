@@ -17,7 +17,7 @@ repository
 -> line-range structural enrichment
 -> route/HTTP-call relationship matching
 -> relationship-enriched chunk corpus
--> BM25 lexical retrieval over raw chunk source
+-> independent BM25 and dense retrieval over raw chunk source
 ```
 
 In parallel with chunk creation, each whole-file Document now follows this structural
@@ -39,8 +39,8 @@ code chunks with source ranges + file structure
 -> relationship-enriched code corpus
 ```
 
-The BM25 baseline is implemented. The remaining planned retrieval and generation
-pipeline is:
+The BM25 and dense baselines are implemented and evaluated independently. The
+remaining planned retrieval and generation pipeline is:
 
 ```text
         BM25 results    dense results
@@ -334,8 +334,103 @@ only tokenless source content returns stable zero-score results rather than expo
 This baseline deliberately excludes definitions, imports, routes, HTTP calls,
 relationships, file paths, languages, chunk identifiers, and every other metadata
 field from scoring. Later prompts will evaluate structural augmentation separately.
-Dense retrieval, hybrid fusion, reranking, relationship expansion, retrieval metrics,
-and generation are not implemented yet.
+Hybrid fusion, reranking, relationship expansion, and generation are not implemented
+yet.
+
+## Dense retrieval baseline
+
+`src.retrieval.dense.DenseRetriever` is the independent semantic baseline over the
+same shared chunk corpus. Its default local backend uses Sentence Transformers with
+`jinaai/jina-embeddings-v2-base-code` and trusted model code. Corpus embeddings are
+computed once when the retriever is constructed; one query embedding is computed per
+non-empty retrieval call.
+
+Only each original `Document.page_content` is sent to the embedding backend. Metadata
+is never concatenated, serialized, embedded, or used to alter scores. Both corpus and
+query vectors request backend normalization and are defensively normalized again.
+Cosine similarity is therefore computed as an in-memory NumPy dot product. No vector
+database, hosted embedding API, API key, or paid service is involved.
+
+`DenseSearchResult` retains the exact original Document object together with its
+floating-point cosine score. Results sort by descending similarity and then original
+corpus position, making ties deterministic. `k` is capped to corpus size; `k=0`, blank
+queries, and empty corpora return no results. Negative `k`, malformed embedding
+shapes, zero-length vectors, and query/corpus dimension mismatches fail explicitly.
+
+The embedding boundary is injectable. Unit tests use a deterministic fake encoder to
+prove the raw-source-only invariant, normalization request, ranking behavior, stable
+ties, edge cases, original Document identity, and compatibility with the shared
+offline evaluator without loading the real model.
+
+## Offline retrieval evaluation
+
+`src.retrieval.evaluation.evaluate_retriever` evaluates any retriever that returns a
+ranked sequence of objects with a LangChain `Document` attribute. It does not inspect
+BM25 scores and can be reused for future dense, fused, and reranked results. Evaluation
+is an offline measurement layer, not part of the user-facing query path.
+
+Examples are immutable records with a stable query ID, natural-language query, one or
+more relevant chunk IDs, and an optional category. The committed JSON benchmark loader
+rejects malformed records, duplicate query IDs, empty relevance sets, and relevance
+labels absent from the evaluated corpus. Chunk IDs encode the established canonical
+`source + chunk_index` pair as `source::chunk_index`; they are derived during
+evaluation and are not added to Document metadata.
+
+At cutoffs 1, 3, 5, and 10, the evaluator computes macro-averaged Hit Rate, Recall,
+MRR, and binary-relevance nDCG. Per-query diagnostics retain ranked and relevant chunk
+IDs, first relevant rank, category, and every cutoff metric. Category aggregates are
+also available. Duplicate returned chunk IDs are ignored after their first rank so
+they cannot inflate recall.
+
+The engineering regression benchmark contains five compact files across Python,
+TypeScript, and Java and 15 hand-labeled queries: five lexical, five semantic, and five
+relationship-oriented. It uses real repository discovery, whole-file loading, and
+language-aware chunking. This small committed fixture detects regressions and enables
+repeatable model comparisons; it is not presented as the final large-scale external
+evaluation dataset.
+
+The unmodified raw-`page_content` BM25 baseline produces:
+
+| Metric | @1 | @3 | @5 | @10 |
+| --- | ---: | ---: | ---: | ---: |
+| Hit Rate | 0.6667 | 0.8667 | 1.0000 | 1.0000 |
+| Recall | 0.6667 | 0.8667 | 1.0000 | 1.0000 |
+| MRR | 0.6667 | 0.7333 | 0.7667 | 0.7667 |
+| nDCG | 0.6667 | 0.7667 | 0.8241 | 0.8241 |
+
+Lexical queries achieve 1.0000 for all four metrics at every cutoff. Semantic queries
+have Hit Rate@1 0.6000, while relationship queries have Hit Rate@1 0.4000. These lower
+scores are retained rather than tuned away because they provide useful headroom for
+future dense and relationship-aware retrieval.
+
+Reproduce the report with:
+
+```shell
+python -m src.retrieval.evaluate_bm25
+```
+
+The real local dense model on the identical frozen corpus produces:
+
+| Metric | @1 | @3 | @5 | @10 |
+| --- | ---: | ---: | ---: | ---: |
+| Hit Rate | 0.8000 | 1.0000 | 1.0000 | 1.0000 |
+| Recall | 0.8000 | 1.0000 | 1.0000 | 1.0000 |
+| MRR | 0.8000 | 0.8889 | 0.8889 | 0.8889 |
+| nDCG | 0.8000 | 0.9175 | 0.9175 | 0.9175 |
+
+Lexical Hit Rate@1 remains 1.0000. Semantic Hit Rate@1 improves from 0.6000
+with BM25 to 0.8000 with dense retrieval, and relationship Hit Rate@1 improves from
+0.4000 to 0.6000. These figures are a reproducible engineering regression result on
+the small committed fixture, not a claim of general model quality.
+
+Reproduce both reports and their direct comparison with:
+
+```shell
+python -m src.retrieval.evaluate_dense
+```
+
+Evaluation labels and categories are inspected only after retrieval to score ranked
+chunk identities. They are never injected into BM25 source text, tokens, or scoring.
 
 ## Why Tree-sitter is used here
 
@@ -353,5 +448,6 @@ graph database, import-to-file resolution, or repository-wide symbol resolution.
 Configured-base-URL matching, service or repository dependency graphs, call graphs,
 neighbor expansion, and retrieval use of structural metadata are not implemented.
 
-Dense retrieval, embeddings, vector storage, Reciprocal Rank Fusion, cross-encoder
-reranking, and LLM answer generation remain planned and are not implemented.
+Vector storage, Reciprocal Rank Fusion, cross-encoder reranking, and LLM answer
+generation remain planned and are not implemented. The current dense retriever keeps
+normalized embeddings in memory and is intentionally not fused with BM25.
