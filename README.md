@@ -3,9 +3,10 @@
 This project will answer natural-language questions about software repositories by
 retrieving relevant source-code context and using it to generate referenced answers.
 
-Repository source discovery, LangChain Document loading, and language-aware code
-chunking are implemented. Indexing, retrieval, and answer generation are not yet
-implemented.
+Repository source discovery, LangChain Document loading, language-aware code
+chunking, and metadata-only enrichment for definitions, imports, and selected backend
+route frameworks are implemented. Indexing, retrieval, and answer generation are not
+yet implemented.
 
 ## Development setup
 

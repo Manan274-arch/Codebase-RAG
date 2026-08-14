@@ -32,6 +32,8 @@ def test_small_document_remains_one_chunk_with_metadata() -> None:
         "owner": "team-a",
         "start_index": 0,
         "chunk_index": 0,
+        "start_line": 1,
+        "end_line": 2,
     }
 
 
@@ -84,6 +86,22 @@ def test_start_indices_reference_original_content_and_overlap_is_applied() -> No
             chunk.page_content
         )
     assert chunks[1].metadata["start_index"] < len(chunks[0].page_content)
+
+
+def test_chunk_line_ranges_are_one_based_and_inclusive() -> None:
+    content = "first line\nsecond line\nthird line\n"
+
+    chunks = chunk_documents(
+        [source_document(content, language="shell")],
+        chunk_size=12,
+        chunk_overlap=0,
+    )
+
+    for chunk in chunks:
+        start = chunk.metadata["start_index"]
+        end = start + len(chunk.page_content) - 1
+        assert chunk.metadata["start_line"] == content.count("\n", 0, start) + 1
+        assert chunk.metadata["end_line"] == content.count("\n", 0, end) + 1
 
 
 EXPECTED_LANGUAGE_MAPPING = {
@@ -164,4 +182,3 @@ def test_invalid_chunk_settings_fail_clearly(
 ) -> None:
     with pytest.raises(ValueError, match=message):
         chunk_documents([], chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-

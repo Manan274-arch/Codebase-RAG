@@ -41,7 +41,15 @@ def chunk_documents(
         document_chunks = splitter.split_documents([document])
 
         for chunk_index, chunk in enumerate(document_chunks):
+            start_index = chunk.metadata["start_index"]
             chunk.metadata["chunk_index"] = chunk_index
+            chunk.metadata["start_line"] = _line_number_at(
+                document.page_content, start_index
+            )
+            chunk.metadata["end_line"] = _line_number_at(
+                document.page_content,
+                start_index + len(chunk.page_content) - 1,
+            )
             chunks.append(chunk)
 
     return chunks
@@ -74,3 +82,8 @@ def _validate_chunk_settings(chunk_size: int, chunk_overlap: int) -> None:
         raise ValueError("chunk_overlap must be non-negative")
     if chunk_overlap >= chunk_size:
         raise ValueError("chunk_overlap must be smaller than chunk_size")
+
+
+def _line_number_at(source: str, character_index: int) -> int:
+    """Return the one-based line containing ``character_index``."""
+    return source.count("\n", 0, character_index) + 1

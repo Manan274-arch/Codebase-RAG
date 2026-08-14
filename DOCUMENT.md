@@ -13,7 +13,26 @@ repository
 -> source-file discovery
 -> LangChain Documents
 -> language-aware or fallback chunking
--> shared chunk corpus
+-> code chunks with source ranges
+-> line-range structural enrichment
+-> enriched chunk corpus
+```
+
+In parallel with chunk creation, each whole-file Document now follows this structural
+path:
+
+```text
+whole-file Document
+-> Tree-sitter structural analysis
+-> normalized definitions, imports, and backend routes with source spans
+```
+
+These paths join deterministically:
+
+```text
+code chunks with source ranges + file structure
+-> inclusive line-range overlap
+-> structurally enriched code chunks
 ```
 
 The remaining planned retrieval and generation pipeline is:
@@ -95,19 +114,129 @@ Whole-file Documents are split into the future shared retrieval corpus with defa
 TypeScript, Go, Rust, C#, Ruby, PHP, Swift, Kotlin, and Scala use LangChain's
 language-aware recursive splitting. Languages without a corresponding LangChain
 `Language` member, currently Shell and SQL, use generic recursive splitting and are
-not discarded. No custom AST, Tree-sitter, Shell, or SQL parsing is used.
+not discarded. No custom AST is used for chunking. Tree-sitter analysis is a separate
+whole-file operation and does not replace LangChain's splitting behavior.
 
 Every chunk preserves all parent metadata and adds:
 
 - `chunk_index`: Zero-based within its source Document and restarted for each file.
 - `start_index`: Character offset of the chunk in the complete source text, supplied
   by LangChain's public text-splitter API.
+- `start_line` and `end_line`: One-based, inclusive source-line range derived from the
+  exact character offset and unchanged chunk content.
 
 Empty source Documents produce no chunks. Non-empty chunks contain source text only;
 file paths and language labels remain metadata. Splitter whitespace stripping is
 disabled so source whitespace is preserved. Parent and within-parent ordering are
 preserved, making the output a deterministic shared corpus for future sparse and dense
 retrieval.
+
+## Structural extraction
+
+Source discovery produces the supported code-file set, and the loader creates one
+whole-file LangChain Document per source file. Language-aware chunking continues to
+create code chunks independently. The structural layer analyzes the complete Document
+text with `tree-sitter-language-pack` and produces lightweight definitions, imports,
+and backend route definitions. It does not reread files or use chunks as parser input.
+
+The public API is `src.ingestion.structure.extract_structure(document)`. It returns
+an immutable `FileStructure` containing the normalized language, optional source
+identifier, and tuples of project-owned `Definition`, `Import`, and `RouteDefinition`
+values. Vendor Tree-sitter objects do not cross this boundary. Nested definitions are
+recursively flattened in source order; lexical ancestry is retained in names such as
+`Service.get_user`. This is syntactic nesting, not symbol resolution.
+
+Structural spans use one-based, inclusive line numbers. Columns are zero-based, with
+an exclusive end column. The adapter performs the line conversion from Tree-sitter's
+zero-based values.
+
+The dependency's extraction capabilities vary by grammar. In the bounded 1.x API,
+Python, JavaScript, and Java expose representative named definitions, nested methods,
+and imports. Its current C/C++ structural output can report function/class spans
+without names and does not classify preprocessor `#include` directives as imports.
+The adapter omits unnamed entries rather than inventing identifiers.
+
+## Backend route extraction
+
+Route recognition performs one additional in-memory Tree-sitter parse of the already
+loaded whole-file text. The high-level definitions/imports API does not expose its
+syntax tree, so the proven Prompt 5 adapter remains unchanged. Recognizers traverse
+confirmed decorator, annotation, call-expression, and method-declaration nodes; they
+do not scan whole files with regular expressions.
+
+The intentionally small support matrix is:
+
+| Language | Framework | Recognized static forms |
+| --- | --- | --- |
+| Python | FastAPI | `app`/`router` HTTP-method decorators |
+| Python | Flask | `app`/`blueprint` `route()` and HTTP-method decorators |
+| JavaScript/TypeScript | Express | Direct `app`/`router.HTTP_METHOD(path, handler)` registrations |
+| Java | Spring Web/MVC | Method `*Mapping`/`RequestMapping` annotations and lexical class prefixes |
+
+Supported HTTP methods are GET, POST, PUT, PATCH, DELETE, OPTIONS, and HEAD. Flask
+`route()` without an explicit literal `methods` list is represented as GET only;
+implicit HEAD/OPTIONS behavior is not modeled. Spring `RequestMapping` without an
+explicit method uses an empty tuple to mean unspecified. Methods are deduplicated and
+stored in the deterministic order listed above.
+
+Only plain quoted path literals are accepted. Runtime expressions, interpolation,
+escaped strings, constant propagation, and application-module execution are excluded.
+Handlers are recorded only when their names are syntactically direct; anonymous
+Express callbacks have no handler name. Python and Spring route spans cover the full
+decorated/annotated handler declaration, while Express spans cover the registration
+statement. All spans use the existing one-based inclusive line convention.
+
+Spring class prefixes are joined only with mappings on lexically nested methods in the
+same class. There is no repository-wide prefix resolution or Express router-mount
+resolution. Unsupported frameworks simply produce no routes; this is not an error.
+
+## Structural enrichment
+
+`src.ingestion.enrichment.enrich_chunks(chunks, file_structure)` maps Prompt 5's
+whole-file records to Prompt 4's chunks. It validates that chunks belong to the same
+source file and contain positive, valid line ranges. It then uses one-based inclusive
+range overlap: two records overlap when the later start line is no later than the
+earlier end line. A shared boundary line therefore counts as an overlap.
+
+Line overlap is a lightweight, deterministic bridge between whole-file syntax and
+retrieval-sized chunks. It requires no text matching, compiler-grade name resolution,
+or second parse. A nested method's span and its containing class span can both overlap
+one chunk, so both records are retained. Likewise, a large function or class can
+legitimately appear on every chunk it spans.
+
+Imports follow exactly the same rule using their own statement spans. They are not
+copied to every chunk in a file, resolved to repository paths, or used to construct a
+dependency graph.
+
+Enrichment creates new LangChain Documents in the original order. It preserves their
+IDs, source text, and existing metadata, adding the plain serializable lists
+`structural_definitions`, `structural_imports`, and `structural_routes`. All keys are
+present as empty lists when a chunk has no matches. Definitions retain name, qualified
+name, kind, signature, and start/end lines. Imports retain source, imported items,
+alias, wildcard status, and start/end lines. Routes retain path, uppercase methods,
+framework, handler, lexical owner, and start/end lines. Duplicate identical records
+are removed and records are sorted by source position with stable tie-breakers.
+
+Routes use the same inclusive line-overlap primitive as definitions and imports. A
+route can appear on multiple chunks when its handler declaration crosses a chunk
+boundary. Route metadata remains separate from unchanged source `page_content`;
+retrieval does not use it yet.
+
+## Why Tree-sitter is used here
+
+LangChain remains responsible for generic Documents, text splitting, and future RAG
+orchestration. Tree-sitter supplies multi-language syntax structure—named definitions,
+lexical nesting, imports, and precise spans—that ordinary text splitters cannot
+reliably provide. It is an analysis adapter, not a second chunking pipeline.
+
+## Structural-analysis non-goals
+
+The implemented structural scope is definitions, imports, selected backend route
+definitions, and source-span mapping to chunks. It deliberately does not provide
+compiler-grade semantic analysis, a complete call graph, LSP or SCIP integration, a
+graph database, import-to-file resolution, or repository-wide symbol resolution.
+Client/outbound HTTP calls, frontend-to-backend matching, repository dependency
+graphs, neighbor expansion, and retrieval use of route metadata are not implemented.
 
 BM25, dense retrieval, embeddings, vector storage, Reciprocal Rank Fusion,
 cross-encoder reranking, and LLM answer generation remain planned and are not
