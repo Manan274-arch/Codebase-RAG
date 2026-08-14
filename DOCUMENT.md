@@ -15,7 +15,9 @@ repository
 -> language-aware or fallback chunking
 -> code chunks with source ranges
 -> line-range structural enrichment
--> enriched chunk corpus
+-> route/HTTP-call relationship matching
+-> relationship-enriched chunk corpus
+-> BM25 lexical retrieval over raw chunk source
 ```
 
 In parallel with chunk creation, each whole-file Document now follows this structural
@@ -33,14 +35,15 @@ These paths join deterministically:
 code chunks with source ranges + file structure
 -> inclusive line-range overlap
 -> structurally enriched code chunks
+-> route/HTTP-call matching
+-> relationship-enriched code corpus
 ```
 
-The remaining planned retrieval and generation pipeline is:
+The BM25 baseline is implemented. The remaining planned retrieval and generation
+pipeline is:
 
 ```text
-             chunk corpus
-             /          \
-           BM25         dense
+        BM25 results    dense results
              \          /
         Reciprocal Rank Fusion
                   |
@@ -267,6 +270,73 @@ Outbound calls use that same overlap rule and are attached only to chunks contai
 their call spans. Their metadata also remains separate from unchanged source
 `page_content`.
 
+## Route-to-HTTP-call relationships
+
+`src.ingestion.relationships.link_http_calls_to_routes(chunks)` operates on the
+complete corpus of already enriched LangChain Documents. It does not read source,
+invoke Tree-sitter, or depend on programming languages and frameworks. It consumes
+only `structural_routes` and `structural_http_calls`, then returns non-mutating copies
+in the original order.
+
+Chunks currently have no deterministic LangChain `Document.id` by default. The stable
+relationship identity is therefore the already guaranteed pair of repository-relative
+`source` and per-source `chunk_index`. References also retain `start_line` and
+`end_line` for location and debugging. Call chunks receive `related_route_chunks`, and
+route chunks receive `related_http_call_chunks`; both are plain serializable lists and
+are explicitly empty when unmatched. Existing structural metadata and source
+`page_content` remain unchanged.
+
+Only calls with a known method and a root-relative target beginning with one `/` are
+eligible. Absolute and protocol-relative URLs, targets without a leading slash, and
+calls with unknown methods are not linked. Comparison removes query strings and
+fragments, treats a trailing slash as equivalent except for `/`, preserves case, and
+does not decode percent escapes or modify the original metadata.
+
+Matching is segment-based. Backend `{name}` and `:name` segments match exactly one
+call segment; backend literal segments must equal call segments. Call-side placeholders
+have no wildcard authority. Segment counts must match, and unsupported catch-all or
+ambiguous parameter syntax is skipped. Explicit backend methods must include the call
+method. An empty backend method list—the Prompt 7 representation for unrestricted
+Spring `RequestMapping`—matches any known outbound method.
+
+When several backend patterns match, the pattern with more literal segments and fewer
+parameter segments wins. All equally specific matches are retained deterministically.
+If one route or call record appears on multiple overlapping chunks, every legitimate
+chunk reference is retained and exact duplicate references are removed.
+
+The lightweight structural/relationship stage is now complete. Its known limitations
+include no configured frontend base-URL resolution, environment/config resolution,
+runtime route generation, Express mount resolution beyond extracted paths,
+cross-service domain inference, full call graph, service graph, or compiler-grade
+semantics. Retrieval now starts from the isolated lexical baseline below.
+
+## BM25 lexical retrieval baseline
+
+`src.retrieval.bm25.BM25Retriever` is the first retrieval baseline over the shared
+LangChain code-chunk corpus. Construction tokenizes only each original
+`Document.page_content`; metadata is never concatenated, serialized, or supplied to
+`BM25Okapi`. Queries use the same tokenizer. Retrieved `BM25SearchResult` values retain
+the exact original Document object and expose its floating-point BM25 score, so source,
+chunk identity, structural metadata, and relationships remain available for inspection
+without affecting scoring.
+
+The deliberately simple tokenizer case-folds text and extracts ASCII sequences made
+of letters, digits, and underscores. Underscores remain within identifiers. It does
+not split camelCase or snake_case, expand identifiers, add synonyms, inspect syntax,
+rewrite queries, or inject metadata.
+
+Results are ordered by descending BM25 score, with original corpus position as the
+explicit deterministic tie-breaker. `k` is capped safely to corpus size; `k=0`, empty
+or tokenless queries, and an empty corpus return no results. A non-empty corpus with
+only tokenless source content returns stable zero-score results rather than exposing a
+`rank_bm25` empty-vocabulary failure.
+
+This baseline deliberately excludes definitions, imports, routes, HTTP calls,
+relationships, file paths, languages, chunk identifiers, and every other metadata
+field from scoring. Later prompts will evaluate structural augmentation separately.
+Dense retrieval, hybrid fusion, reranking, relationship expansion, retrieval metrics,
+and generation are not implemented yet.
+
 ## Why Tree-sitter is used here
 
 LangChain remains responsible for generic Documents, text splitting, and future RAG
@@ -280,10 +350,8 @@ The implemented structural scope is definitions, imports, selected backend route
 selected outbound HTTP calls, and source-span mapping to chunks. It does not provide
 compiler-grade semantic analysis, a complete call graph, LSP or SCIP integration, a
 graph database, import-to-file resolution, or repository-wide symbol resolution.
-Route-to-call matching, frontend-to-backend links, service or repository dependency
-graphs, neighbor expansion, and retrieval use of structural metadata are not
-implemented.
+Configured-base-URL matching, service or repository dependency graphs, call graphs,
+neighbor expansion, and retrieval use of structural metadata are not implemented.
 
-BM25, dense retrieval, embeddings, vector storage, Reciprocal Rank Fusion,
-cross-encoder reranking, and LLM answer generation remain planned and are not
-implemented.
+Dense retrieval, embeddings, vector storage, Reciprocal Rank Fusion, cross-encoder
+reranking, and LLM answer generation remain planned and are not implemented.

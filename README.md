@@ -6,7 +6,9 @@ retrieving relevant source-code context and using it to generate referenced answ
 Repository source discovery, LangChain Document loading, language-aware code
 chunking, and metadata-only enrichment for definitions, imports, and selected backend
 route and outbound HTTP-client patterns are implemented. Relationship matching,
-indexing, retrieval, and answer generation are not yet implemented.
+including conservative route-to-call chunk links, is implemented. A raw-source-only
+BM25 lexical retrieval baseline is also available. Dense/hybrid retrieval, evaluation,
+and answer generation remain planned.
 
 ## Development setup
 
