@@ -5,11 +5,18 @@ from typing import Any
 
 from langchain_core.documents import Document
 
-from src.ingestion.structure import Definition, FileStructure, Import, RouteDefinition
+from src.ingestion.structure import (
+    Definition,
+    FileStructure,
+    HttpCall,
+    Import,
+    RouteDefinition,
+)
 
 DEFINITIONS_METADATA_KEY = "structural_definitions"
 IMPORTS_METADATA_KEY = "structural_imports"
 ROUTES_METADATA_KEY = "structural_routes"
+HTTP_CALLS_METADATA_KEY = "structural_http_calls"
 
 
 class StructuralEnrichmentError(ValueError):
@@ -30,6 +37,7 @@ def enrich_chunks(
     definitions = _ordered_unique_definitions(file_structure.definitions)
     imports = _ordered_unique_imports(file_structure.imports)
     routes = _ordered_unique_routes(file_structure.routes)
+    http_calls = _ordered_unique_http_calls(file_structure.http_calls)
     enriched: list[Document] = []
 
     for chunk in chunks:
@@ -77,6 +85,16 @@ def enrich_chunks(
                 end_line,
                 route.span.start_line,
                 route.span.end_line,
+            )
+        ]
+        metadata[HTTP_CALLS_METADATA_KEY] = [
+            _http_call_metadata(call)
+            for call in http_calls
+            if line_ranges_overlap(
+                start_line,
+                end_line,
+                call.span.start_line,
+                call.span.end_line,
             )
         ]
         enriched.append(
@@ -149,6 +167,21 @@ def _ordered_unique_routes(routes: Iterable[RouteDefinition]) -> list[RouteDefin
     return list(dict.fromkeys(ordered))
 
 
+def _ordered_unique_http_calls(calls: Iterable[HttpCall]) -> list[HttpCall]:
+    ordered = sorted(
+        calls,
+        key=lambda item: (
+            item.span.start_line,
+            item.span.end_line,
+            item.client,
+            item.method or "",
+            item.target,
+            item.caller or "",
+        ),
+    )
+    return list(dict.fromkeys(ordered))
+
+
 def _definition_metadata(definition: Definition) -> dict[str, object]:
     return {
         "name": definition.name,
@@ -180,4 +213,15 @@ def _route_metadata(route: RouteDefinition) -> dict[str, object]:
         "owner": route.owner,
         "start_line": route.span.start_line,
         "end_line": route.span.end_line,
+    }
+
+
+def _http_call_metadata(call: HttpCall) -> dict[str, object]:
+    return {
+        "method": call.method,
+        "target": call.target,
+        "client": call.client,
+        "caller": call.caller,
+        "start_line": call.span.start_line,
+        "end_line": call.span.end_line,
     }

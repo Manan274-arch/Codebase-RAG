@@ -24,7 +24,7 @@ path:
 ```text
 whole-file Document
 -> Tree-sitter structural analysis
--> normalized definitions, imports, and backend routes with source spans
+-> definitions, imports, backend routes, and outbound HTTP calls with source spans
 ```
 
 These paths join deterministically:
@@ -137,12 +137,13 @@ Source discovery produces the supported code-file set, and the loader creates on
 whole-file LangChain Document per source file. Language-aware chunking continues to
 create code chunks independently. The structural layer analyzes the complete Document
 text with `tree-sitter-language-pack` and produces lightweight definitions, imports,
-and backend route definitions. It does not reread files or use chunks as parser input.
+backend route definitions, and outbound HTTP calls. It does not reread files or use
+chunks as parser input.
 
 The public API is `src.ingestion.structure.extract_structure(document)`. It returns
 an immutable `FileStructure` containing the normalized language, optional source
-identifier, and tuples of project-owned `Definition`, `Import`, and `RouteDefinition`
-values. Vendor Tree-sitter objects do not cross this boundary. Nested definitions are
+identifier, and tuples of project-owned `Definition`, `Import`, `RouteDefinition`, and
+`HttpCall` values. Vendor Tree-sitter objects do not cross this boundary. Nested definitions are
 recursively flattened in source order; lexical ancestry is retained in names such as
 `Service.get_user`. This is syntactic nesting, not symbol resolution.
 
@@ -190,6 +191,44 @@ Spring class prefixes are joined only with mappings on lexically nested methods 
 same class. There is no repository-wide prefix resolution or Express router-mount
 resolution. Unsupported frameworks simply produce no routes; this is not an error.
 
+## Outbound HTTP-call extraction
+
+Outbound calls are extracted independently from backend routes using another
+in-memory Tree-sitter parse of the same whole-file text. Recognition traverses actual
+call-expression and argument nodes, so call-shaped text in comments and strings is
+ignored. The supported client matrix is deliberately conservative:
+
+| Language | Client | Recognized static forms |
+| --- | --- | --- |
+| JavaScript/TypeScript | Fetch | `fetch(static_target)` and a direct object-literal `method` option |
+| JavaScript/TypeScript | Axios | Direct `axios.get/post/put/patch/delete/head/options(static_target, ...)` calls |
+| Python | Requests | Direct `requests.get/post/put/patch/delete/head/options(static_target, ...)` calls |
+| Python | HTTPX | Direct `httpx.get/post/put/patch/delete/head/options(static_target, ...)` calls |
+
+Fetch without options, or with an object literal that omits `method`, is recorded as
+GET. A dynamic options value leaves the method unspecified rather than guessing.
+Known methods are normalized to uppercase. Stable client labels are `fetch`, `axios`,
+`requests`, and `httpx`.
+
+Plain quoted targets are retained exactly. Simple JavaScript template placeholders
+such as `` `/api/users/${id}` `` and Python f-string placeholders such as
+`f"/api/users/{user_id}"` are normalized to `/api/users/{id}` and
+`/api/users/{user_id}` respectively when every interpolation is a bare identifier.
+Dynamic expressions, escaped literals, constant propagation, configuration lookup,
+and runtime URL evaluation are not supported.
+
+The lexical containing function name is retained when directly available. This is
+not call-graph analysis. HTTP-call spans cover the narrow Tree-sitter call expression,
+using the same one-based inclusive line convention as all other structural records.
+Configured Axios instances, HTTPX client variables, arbitrary custom clients, and
+Java HTTP clients are intentionally unsupported. They yield no metadata rather than
+an error.
+
+A backend route definition such as `@app.get("/users/{id}")` declares a server
+endpoint. An outbound call such as ``axios.get(`/users/${id}`)`` invokes an HTTP
+target. This stage extracts both facts independently; it does not compare, link, or
+otherwise infer a relationship between them.
+
 ## Structural enrichment
 
 `src.ingestion.enrichment.enrich_chunks(chunks, file_structure)` maps Prompt 5's
@@ -210,17 +249,23 @@ dependency graph.
 
 Enrichment creates new LangChain Documents in the original order. It preserves their
 IDs, source text, and existing metadata, adding the plain serializable lists
-`structural_definitions`, `structural_imports`, and `structural_routes`. All keys are
-present as empty lists when a chunk has no matches. Definitions retain name, qualified
-name, kind, signature, and start/end lines. Imports retain source, imported items,
-alias, wildcard status, and start/end lines. Routes retain path, uppercase methods,
-framework, handler, lexical owner, and start/end lines. Duplicate identical records
-are removed and records are sorted by source position with stable tie-breakers.
+`structural_definitions`, `structural_imports`, `structural_routes`, and
+`structural_http_calls`. All keys are present as empty lists when a chunk has no
+matches. Definitions retain name, qualified name, kind, signature, and start/end
+lines. Imports retain source, imported items, alias, wildcard status, and start/end
+lines. Routes retain path, uppercase methods, framework, handler, lexical owner, and
+start/end lines. HTTP calls retain method, target, client, lexical caller, and
+start/end lines. Duplicate identical records are removed and records are sorted by
+source position with stable tie-breakers.
 
 Routes use the same inclusive line-overlap primitive as definitions and imports. A
 route can appear on multiple chunks when its handler declaration crosses a chunk
 boundary. Route metadata remains separate from unchanged source `page_content`;
 retrieval does not use it yet.
+
+Outbound calls use that same overlap rule and are attached only to chunks containing
+their call spans. Their metadata also remains separate from unchanged source
+`page_content`.
 
 ## Why Tree-sitter is used here
 
@@ -231,12 +276,13 @@ reliably provide. It is an analysis adapter, not a second chunking pipeline.
 
 ## Structural-analysis non-goals
 
-The implemented structural scope is definitions, imports, selected backend route
-definitions, and source-span mapping to chunks. It deliberately does not provide
+The implemented structural scope is definitions, imports, selected backend routes,
+selected outbound HTTP calls, and source-span mapping to chunks. It does not provide
 compiler-grade semantic analysis, a complete call graph, LSP or SCIP integration, a
 graph database, import-to-file resolution, or repository-wide symbol resolution.
-Client/outbound HTTP calls, frontend-to-backend matching, repository dependency
-graphs, neighbor expansion, and retrieval use of route metadata are not implemented.
+Route-to-call matching, frontend-to-backend links, service or repository dependency
+graphs, neighbor expansion, and retrieval use of structural metadata are not
+implemented.
 
 BM25, dense retrieval, embeddings, vector storage, Reciprocal Rank Fusion,
 cross-encoder reranking, and LLM answer generation remain planned and are not

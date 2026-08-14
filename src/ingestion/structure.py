@@ -77,6 +77,17 @@ class RouteDefinition:
 
 
 @dataclass(frozen=True, slots=True)
+class HttpCall:
+    """A statically recognizable outbound HTTP request."""
+
+    method: str | None
+    target: str
+    client: str
+    span: SourceSpan
+    caller: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class FileStructure:
     """Lightweight syntax records extracted from one complete source file."""
 
@@ -85,6 +96,7 @@ class FileStructure:
     imports: tuple[Import, ...]
     source: str | None = None
     routes: tuple[RouteDefinition, ...] = ()
+    http_calls: tuple[HttpCall, ...] = ()
 
 
 class StructuralExtractionError(RuntimeError):
@@ -135,6 +147,9 @@ def extract_structure(document: Document) -> FileStructure:
         from src.ingestion.routes import extract_routes
 
         routes = extract_routes(document.page_content, language)
+        from src.ingestion.http_calls import extract_http_calls
+
+        http_calls = extract_http_calls(document.page_content, language)
     except StructuralExtractionError:
         raise
     except Exception as error:
@@ -146,6 +161,7 @@ def extract_structure(document: Document) -> FileStructure:
         imports=imports,
         source=source,
         routes=routes,
+        http_calls=http_calls,
     )
 
 

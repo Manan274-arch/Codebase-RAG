@@ -5,8 +5,8 @@ retrieving relevant source-code context and using it to generate referenced answ
 
 Repository source discovery, LangChain Document loading, language-aware code
 chunking, and metadata-only enrichment for definitions, imports, and selected backend
-route frameworks are implemented. Indexing, retrieval, and answer generation are not
-yet implemented.
+route and outbound HTTP-client patterns are implemented. Relationship matching,
+indexing, retrieval, and answer generation are not yet implemented.
 
 ## Development setup
 

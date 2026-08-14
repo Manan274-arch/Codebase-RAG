@@ -11,6 +11,7 @@ from src.ingestion.loader import load_source_documents
 from src.ingestion.structure import (
     Definition,
     FileStructure,
+    HttpCall,
     Import,
     RouteDefinition,
     SourceSpan,
@@ -141,6 +142,7 @@ def test_enrichment_preserves_content_metadata_order_and_id_without_mutation() -
     assert all(item.metadata["structural_definitions"] == [] for item in result)
     assert all(item.metadata["structural_imports"] == [] for item in result)
     assert all(item.metadata["structural_routes"] == [] for item in result)
+    assert all(item.metadata["structural_http_calls"] == [] for item in result)
 
 
 def test_routes_use_the_same_line_overlap_and_plain_metadata() -> None:
@@ -174,6 +176,32 @@ def test_routes_use_the_same_line_overlap_and_plain_metadata() -> None:
         }
     ]
     assert result[1].metadata["structural_routes"] == []
+
+
+def test_http_calls_are_deduplicated_ordered_and_line_scoped() -> None:
+    early = HttpCall("GET", "/early", "fetch", span(2, 2), "load")
+    late = HttpCall("POST", "/late", "axios", span(8, 8), None)
+    file_structure = FileStructure(
+        language="javascript",
+        definitions=(),
+        imports=(),
+        source="app.py",
+        http_calls=(late, early, early),
+    )
+
+    result = enrich_chunks([chunk(1, 5), chunk(6, 10)], file_structure)
+
+    assert result[0].metadata["structural_http_calls"] == [
+        {
+            "method": "GET",
+            "target": "/early",
+            "client": "fetch",
+            "caller": "load",
+            "start_line": 2,
+            "end_line": 2,
+        }
+    ]
+    assert result[1].metadata["structural_http_calls"][0]["target"] == "/late"
 
 
 def test_duplicate_records_are_removed_and_output_is_source_ordered() -> None:
