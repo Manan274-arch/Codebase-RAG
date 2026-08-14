@@ -17,7 +17,13 @@ repository
 -> line-range structural enrichment
 -> route/HTTP-call relationship matching
 -> relationship-enriched chunk corpus
--> independent BM25 and dense retrieval over raw chunk source
+-> deterministic structural summary plus original code
+-> enriched shared code corpus
+-> independent BM25 and dense retrieval
+-> Reciprocal Rank Fusion
+-> hybrid ranked candidates
+-> cross-encoder reranking
+-> final ranked results
 ```
 
 In parallel with chunk creation, each whole-file Document now follows this structural
@@ -37,18 +43,16 @@ code chunks with source ranges + file structure
 -> structurally enriched code chunks
 -> route/HTTP-call matching
 -> relationship-enriched code corpus
+-> deterministic retrieval representation
 ```
 
-The BM25 and dense baselines are implemented and evaluated independently. The
-remaining planned retrieval and generation pipeline is:
+The BM25 and dense baselines are combined with rank-only Reciprocal Rank Fusion, then
+the fused candidates are scored by a local cross-encoder. The remaining planned
+pipeline is:
 
 ```text
-        BM25 results    dense results
-             \          /
-        Reciprocal Rank Fusion
-                  |
-          cross-encoder reranking
-                  |
+         final ranked results
+                    |
           LLM answer generation
 ```
 
@@ -128,11 +132,11 @@ Every chunk preserves all parent metadata and adds:
 - `start_line` and `end_line`: One-based, inclusive source-line range derived from the
   exact character offset and unchanged chunk content.
 
-Empty source Documents produce no chunks. Non-empty chunks contain source text only;
-file paths and language labels remain metadata. Splitter whitespace stripping is
-disabled so source whitespace is preserved. Parent and within-parent ordering are
-preserved, making the output a deterministic shared corpus for future sparse and dense
-retrieval.
+Empty source Documents produce no chunks. At this intermediate stage, non-empty chunks
+contain source text only; file paths and language labels remain metadata. Splitter
+whitespace stripping is disabled so source whitespace is preserved. Parent and
+within-parent ordering are preserved. Structural rendering happens only after
+enrichment and relationship linking, as described below.
 
 ## Structural extraction
 
@@ -308,14 +312,43 @@ The lightweight structural/relationship stage is now complete. Its known limitat
 include no configured frontend base-URL resolution, environment/config resolution,
 runtime route generation, Express mount resolution beyond extracted paths,
 cross-service domain inference, full call graph, service graph, or compiler-grade
-semantics. Retrieval now starts from the isolated lexical baseline below.
+semantics.
+
+## Shared retrieval representation
+
+`src.ingestion.pipeline.build_enriched_corpus` is the production composition point:
+it loads each whole file, chunks it, extracts and attaches structure, links HTTP
+relationships across the complete corpus, and finally builds one enriched retrieval
+representation. No permanent raw, sparse, or dense corpus variants are created.
+
+`src.ingestion.representation.enrich_retrieval_content` replaces each final
+Document's `page_content` with deterministic structural text followed by a `Code:`
+section containing the exact original chunk. That raw chunk is also preserved in
+`metadata["raw_content"]` for snippets, citations, context assembly, and debugging.
+Repeated processing reads this stable field rather than treating already rendered
+text as code, so rendering is idempotent.
+
+Sections always follow this order: `Source`, `Definitions`, `Imports`, `Routes`,
+`Outbound HTTP Calls`, and `Code`. Empty structural sections are omitted. Definitions
+use qualified name where available, kind, and signature. Imports use their extracted
+source plus items, alias, and wildcard state when present. Routes use methods, path,
+framework, handler, and lexical owner. Outbound calls use method, target, client, and
+lexical caller. Records sort by their existing source-line spans with rendered text as
+a stable tie-breaker.
+
+The renderer does not serialize the metadata dictionary. Line bookkeeping, language,
+chunk indices, relationship references, and other internal fields are not added to
+the retrieval text. Machine-readable structural and relationship metadata remains
+unchanged. In particular, opaque related-chunk identities are retained for future
+graph traversal but are not embedded or indexed as prose. Canonical identity remains
+`source::chunk_index`.
 
 ## BM25 lexical retrieval baseline
 
-`src.retrieval.bm25.BM25Retriever` is the first retrieval baseline over the shared
-LangChain code-chunk corpus. Construction tokenizes only each original
-`Document.page_content`; metadata is never concatenated, serialized, or supplied to
-`BM25Okapi`. Queries use the same tokenizer. Retrieved `BM25SearchResult` values retain
+`src.retrieval.bm25.BM25Retriever` is the lexical retriever over the shared enriched
+LangChain chunk corpus. Construction tokenizes only each Document's rendered
+`page_content`; it does not inspect or serialize metadata itself. Queries use the same
+tokenizer. Retrieved `BM25SearchResult` values retain
 the exact original Document object and expose its floating-point BM25 score, so source,
 chunk identity, structural metadata, and relationships remain available for inspection
 without affecting scoring.
@@ -331,11 +364,10 @@ or tokenless queries, and an empty corpus return no results. A non-empty corpus 
 only tokenless source content returns stable zero-score results rather than exposing a
 `rank_bm25` empty-vocabulary failure.
 
-This baseline deliberately excludes definitions, imports, routes, HTTP calls,
-relationships, file paths, languages, chunk identifiers, and every other metadata
-field from scoring. Later prompts will evaluate structural augmentation separately.
-Hybrid fusion, reranking, relationship expansion, and generation are not implemented
-yet.
+Definitions, imports, routes, outbound calls, and source paths now influence BM25 only
+because the upstream shared representation renders them into `page_content`.
+Relationship IDs and arbitrary metadata remain excluded. There is no field weighting,
+metadata boost, or BM25 algorithm change.
 
 ## Dense retrieval baseline
 
@@ -345,9 +377,9 @@ same shared chunk corpus. Its default local backend uses Sentence Transformers w
 computed once when the retriever is constructed; one query embedding is computed per
 non-empty retrieval call.
 
-Only each original `Document.page_content` is sent to the embedding backend. Metadata
-is never concatenated, serialized, embedded, or used to alter scores. Both corpus and
-query vectors request backend normalization and are defensively normalized again.
+Only each shared Document's enriched `page_content` is sent to the embedding backend.
+Dense retrieval itself never inspects or serializes metadata. Both corpus and query
+vectors request backend normalization and are defensively normalized again.
 Cosine similarity is therefore computed as an in-memory NumPy dot product. No vector
 database, hosted embedding API, API key, or paid service is involved.
 
@@ -358,9 +390,62 @@ queries, and empty corpora return no results. Negative `k`, malformed embedding
 shapes, zero-length vectors, and query/corpus dimension mismatches fail explicitly.
 
 The embedding boundary is injectable. Unit tests use a deterministic fake encoder to
-prove the raw-source-only invariant, normalization request, ranking behavior, stable
+prove the page-content-only invariant, normalization request, ranking behavior, stable
 ties, edge cases, original Document identity, and compatibility with the shared
 offline evaluator without loading the real model.
+
+## Reciprocal Rank Fusion
+
+`src.retrieval.hybrid.reciprocal_rank_fusion` combines ranked result lists without
+comparing their raw scores. BM25 relevance values and dense cosine similarities have
+different scales and meanings, so directly adding or averaging them would be
+unprincipled. RRF uses only each branch's one-based rank:
+
+```text
+RRF_score(chunk) = sum(1 / (rrf_constant + rank))
+```
+
+The default `rrf_constant` is the conventional value 60. A chunk receives one
+contribution from every branch in which it occurs and at most one contribution per
+branch. Deduplication uses the existing canonical `source::chunk_index` identity;
+missing or malformed identity metadata raises the same validation error used by the
+offline evaluator. The first original Document object encountered is retained, so
+all metadata remains available without reconstruction.
+
+Fused results sort by descending RRF score. Exact score ties use the best individual
+branch rank, followed by first appearance in branch/list order. This provides a stable
+retrieval-evidence tie-break without relying on dictionary or set iteration.
+
+`HybridRetriever` asks BM25 and dense retrieval independently for `candidate_depth`
+results, then returns the final requested `k` fused results. The defaults are
+`candidate_depth=50`, `rrf_constant=60`, and final `k=10`. Candidate depth is kept
+separate from final result count so each branch can contribute candidates that were
+not individually within the final output cutoff. RRF does not inspect metadata beyond
+canonical identity and performs no relationship expansion or heuristic boosting.
+
+## Cross-encoder reranking
+
+`src.retrieval.reranker.CrossEncoderReranker` wraps the existing HybridRetriever as a
+strict second stage. It requests an RRF list using an independently configurable
+`candidate_depth` (default 50), scores all `(query, candidate.page_content)` pairs in
+one batch, and returns only the requested final `k`. It never evaluates the entire
+corpus.
+
+The default local model is `cross-encoder/ms-marco-MiniLM-L6-v2`, loaded through
+Sentence Transformers' `CrossEncoder`. The model name is configurable and the scorer
+boundary is injectable, so unit tests use deterministic fake scores without downloads.
+Sentence Transformers selects an available device; CPU execution is supported and a
+GPU is not required. No hosted reranking service, API key, or vector database is used.
+
+The cross-encoder sees the same enriched structural-summary-plus-code `page_content`
+as BM25 and dense retrieval. It does not substitute `metadata["raw_content"]` or
+serialize arbitrary metadata. Raw source remains preserved separately for future
+snippets and grounded context.
+
+`RerankedSearchResult` retains the exact original Document, cross-encoder score,
+original RRF score, and one-based original RRF rank. Results sort by descending
+cross-encoder score, with original RRF order as the deterministic tie-breaker. Chunk
+identity and metadata are never modified.
 
 ## Offline retrieval evaluation
 
@@ -389,19 +474,26 @@ language-aware chunking. This small committed fixture detects regressions and en
 repeatable model comparisons; it is not presented as the final large-scale external
 evaluation dataset.
 
-The unmodified raw-`page_content` BM25 baseline produces:
+Before Prompt 14, the frozen raw-code baselines were:
+
+| Retriever | Hit Rate@1 | Hit Rate@3 | MRR@3 | nDCG@3 |
+| --- | ---: | ---: | ---: | ---: |
+| BM25 raw | 0.6667 | 0.8667 | 0.7333 | 0.7667 |
+| Dense raw | 0.8000 | 1.0000 | 0.8889 | 0.9175 |
+| RRF raw | 0.7333 | 0.8667 | 0.8000 | 0.8175 |
+
+The current structurally enriched BM25 result is:
 
 | Metric | @1 | @3 | @5 | @10 |
 | --- | ---: | ---: | ---: | ---: |
-| Hit Rate | 0.6667 | 0.8667 | 1.0000 | 1.0000 |
-| Recall | 0.6667 | 0.8667 | 1.0000 | 1.0000 |
-| MRR | 0.6667 | 0.7333 | 0.7667 | 0.7667 |
-| nDCG | 0.6667 | 0.7667 | 0.8241 | 0.8241 |
+| Hit Rate | 0.8000 | 0.9333 | 1.0000 | 1.0000 |
+| Recall | 0.8000 | 0.9333 | 1.0000 | 1.0000 |
+| MRR | 0.8000 | 0.8444 | 0.8578 | 0.8578 |
+| nDCG | 0.8000 | 0.8667 | 0.8925 | 0.8925 |
 
-Lexical queries achieve 1.0000 for all four metrics at every cutoff. Semantic queries
-have Hit Rate@1 0.6000, while relationship queries have Hit Rate@1 0.4000. These lower
-scores are retained rather than tuned away because they provide useful headroom for
-future dense and relationship-aware retrieval.
+Its Hit Rate@1 is 1.0000 lexical, 0.6000 semantic, and 0.8000 relationship. Compared
+with raw BM25, the largest change is relationship Hit Rate@1 from 0.4000 to 0.8000;
+semantic Hit Rate@1 is unchanged.
 
 Reproduce the report with:
 
@@ -409,7 +501,7 @@ Reproduce the report with:
 python -m src.retrieval.evaluate_bm25
 ```
 
-The real local dense model on the identical frozen corpus produces:
+The real local dense model on that enriched corpus produces:
 
 | Metric | @1 | @3 | @5 | @10 |
 | --- | ---: | ---: | ---: | ---: |
@@ -418,15 +510,59 @@ The real local dense model on the identical frozen corpus produces:
 | MRR | 0.8000 | 0.8889 | 0.8889 | 0.8889 |
 | nDCG | 0.8000 | 0.9175 | 0.9175 | 0.9175 |
 
-Lexical Hit Rate@1 remains 1.0000. Semantic Hit Rate@1 improves from 0.6000
-with BM25 to 0.8000 with dense retrieval, and relationship Hit Rate@1 improves from
-0.4000 to 0.6000. These figures are a reproducible engineering regression result on
-the small committed fixture, not a claim of general model quality.
+Its Hit Rate@1 is 1.0000 lexical, 0.8000 semantic, and 0.6000 relationship. All
+aggregate and category metrics are unchanged from the raw dense run on this fixture.
 
 Reproduce both reports and their direct comparison with:
 
 ```shell
 python -m src.retrieval.evaluate_dense
+```
+
+The default hybrid RRF retriever on the enriched corpus produces:
+
+| Metric | @1 | @3 | @5 | @10 |
+| --- | ---: | ---: | ---: | ---: |
+| Hit Rate | 0.8667 | 0.9333 | 1.0000 | 1.0000 |
+| Recall | 0.8667 | 0.9333 | 1.0000 | 1.0000 |
+| MRR | 0.8667 | 0.9000 | 0.9133 | 0.9133 |
+| nDCG | 0.8667 | 0.9087 | 0.9345 | 0.9345 |
+
+Category Hit Rate@1 is 1.0000 lexical, 0.8000 semantic, and 0.8000 relationship.
+Enriched RRF now beats both individual retrievers at Hit Rate@1, MRR@3, and the @5/@10
+MRR and nDCG values. Dense still leads Hit Rate@3 (1.0000 versus 0.9333) and nDCG@3
+(0.9175 versus 0.9087). The stronger BM25 relationship ranking is complementary to
+dense's semantic ranking, but fusion is not uniformly best. These untuned results use
+`rrf_constant=60` and `candidate_depth=50`; the frozen fixture and relevance labels
+were not changed.
+
+Reproduce all three reports and the direct comparison with:
+
+```shell
+python -m src.retrieval.evaluate_hybrid
+```
+
+The default cross-encoder over enriched RRF candidates produces:
+
+| Metric | @1 | @3 | @5 | @10 |
+| --- | ---: | ---: | ---: | ---: |
+| Hit Rate | 0.9333 | 1.0000 | 1.0000 | 1.0000 |
+| Recall | 0.9333 | 1.0000 | 1.0000 | 1.0000 |
+| MRR | 0.9333 | 0.9667 | 0.9667 | 0.9667 |
+| nDCG | 0.9333 | 0.9754 | 0.9754 | 0.9754 |
+
+Category Hit Rate@1 is 1.0000 lexical, 1.0000 semantic, and 0.8000 relationship.
+Compared with RRF, the reranker moves `semantic_send_purchase` from first-relevant
+rank 5 to 1, `relationship_order_backend` from 2 to 1, and
+`relationship_order_client` from 1 to 2. The net result improves every overall metric
+through @3, preserves relationship Hit Rate@1, and raises semantic Hit Rate@1 from
+0.8000 to 1.0000. This is a positive result on the small frozen fixture, not evidence
+that a general web-passage cross-encoder is optimal for every codebase or query.
+
+Reproduce the RRF and reranked reports with:
+
+```shell
+python -m src.retrieval.evaluate_reranker
 ```
 
 Evaluation labels and categories are inspected only after retrieval to score ranked
@@ -446,8 +582,9 @@ selected outbound HTTP calls, and source-span mapping to chunks. It does not pro
 compiler-grade semantic analysis, a complete call graph, LSP or SCIP integration, a
 graph database, import-to-file resolution, or repository-wide symbol resolution.
 Configured-base-URL matching, service or repository dependency graphs, call graphs,
-neighbor expansion, and retrieval use of structural metadata are not implemented.
+neighbor expansion, and direct metadata-field weighting are not implemented.
 
-Vector storage, Reciprocal Rank Fusion, cross-encoder reranking, and LLM answer
-generation remain planned and are not implemented. The current dense retriever keeps
-normalized embeddings in memory and is intentionally not fused with BM25.
+Vector storage and LLM answer generation remain planned and are not implemented. The
+current dense retriever keeps normalized embeddings in memory, its rankings are fused
+with BM25 using rank positions only, and the resulting candidates are reranked by the
+local cross-encoder. Relationship expansion remains unimplemented.

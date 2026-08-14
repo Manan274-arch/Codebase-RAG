@@ -1,8 +1,7 @@
 """Run and compare the real local dense and BM25 regression benchmarks."""
 
 from src.retrieval import _torch_only  # noqa: F401, I001
-from src.ingestion.chunker import chunk_documents
-from src.ingestion.loader import load_source_documents
+from src.ingestion.pipeline import build_enriched_corpus
 from src.retrieval.bm25 import BM25Retriever
 from src.retrieval.dense import DenseRetriever
 from src.retrieval.evaluate_bm25 import (
@@ -19,8 +18,7 @@ from src.retrieval.evaluation import (
 
 def run_comparison() -> tuple[RetrievalEvaluationResult, RetrievalEvaluationResult]:
     """Evaluate BM25 and the real local code embedding model on one frozen corpus."""
-    documents = load_source_documents(DEFAULT_FIXTURE_REPOSITORY)
-    chunks = chunk_documents(documents)
+    chunks = build_enriched_corpus(DEFAULT_FIXTURE_REPOSITORY)
     examples = load_evaluation_examples(DEFAULT_BENCHMARK)
     bm25 = evaluate_retriever(BM25Retriever(chunks), chunks, examples)
     dense = evaluate_retriever(DenseRetriever(chunks), chunks, examples)

@@ -1,9 +1,9 @@
 """Run the committed BM25 retrieval regression benchmark."""
 
-from pathlib import Path
+from pathlib import Path  # noqa: I001
 
-from src.ingestion.chunker import chunk_documents
-from src.ingestion.loader import load_source_documents
+from src.retrieval import _torch_only  # noqa: F401
+from src.ingestion.pipeline import build_enriched_corpus
 from src.retrieval.bm25 import BM25Retriever
 from src.retrieval.evaluation import (
     RetrievalEvaluationResult,
@@ -22,9 +22,8 @@ def run_benchmark(
     repository: Path = DEFAULT_FIXTURE_REPOSITORY,
     benchmark: Path = DEFAULT_BENCHMARK,
 ) -> RetrievalEvaluationResult:
-    """Build the fixture corpus and evaluate the raw-source BM25 baseline."""
-    documents = load_source_documents(repository)
-    chunks = chunk_documents(documents)
+    """Build the fixture corpus and evaluate structurally enriched BM25."""
+    chunks = build_enriched_corpus(repository)
     examples = load_evaluation_examples(benchmark)
     return evaluate_retriever(BM25Retriever(chunks), chunks, examples)
 
