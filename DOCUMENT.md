@@ -12,19 +12,22 @@ context.
 repository
 -> source-file discovery
 -> LangChain Documents
+-> language-aware or fallback chunking
+-> shared chunk corpus
 ```
 
-The remaining planned pipeline is:
+The remaining planned retrieval and generation pipeline is:
 
 ```text
--> language-aware code splitting
--> shared chunk corpus
-   /              \
-BM25          dense retrieval
-   \              /
- -> Reciprocal Rank Fusion (RRF)
- -> cross-encoder reranking
--> LLM answer generation
+             chunk corpus
+             /          \
+           BM25         dense
+             \          /
+        Reciprocal Rank Fusion
+                  |
+          cross-encoder reranking
+                  |
+          LLM answer generation
 ```
 
 ## Architectural principles
@@ -47,11 +50,11 @@ BM25          dense retrieval
 
 ## Current implementation status
 
-Repository source-file discovery and LangChain Document creation are implemented in
-`src/ingestion/repository.py` and `src/ingestion/loader.py`. Discovery recursively
-identifies candidate source files while pruning version-control metadata, virtual
-environments, dependency/vendor directories, generated build output, caches, coverage
-output, and editor metadata. Symbolic-link directories are not traversed.
+Repository source-file discovery, LangChain Document creation, and chunk-corpus
+creation are implemented in `src/ingestion/`. Discovery recursively identifies
+candidate source files while pruning version-control metadata, virtual environments,
+dependency/vendor directories, generated build output, caches, coverage output, and
+editor metadata. Symbolic-link directories are not traversed.
 
 Discovery currently recognizes these extensions using case-insensitive matching:
 
@@ -87,6 +90,25 @@ source text. The current Document contract is:
 - `metadata["source"]`: A stable, repository-relative POSIX path string.
 - `metadata["language"]`: A normalized, extension-derived language label.
 
-No chunking exists yet. The shared chunk corpus, BM25 and dense retrieval, embeddings,
-vector storage, Reciprocal Rank Fusion, cross-encoder reranking, and LLM answer
-generation are planned but not implemented.
+Whole-file Documents are split into the future shared retrieval corpus with default
+`chunk_size=1500` and `chunk_overlap=200`. Python, Java, C, C++, JavaScript,
+TypeScript, Go, Rust, C#, Ruby, PHP, Swift, Kotlin, and Scala use LangChain's
+language-aware recursive splitting. Languages without a corresponding LangChain
+`Language` member, currently Shell and SQL, use generic recursive splitting and are
+not discarded. No custom AST, Tree-sitter, Shell, or SQL parsing is used.
+
+Every chunk preserves all parent metadata and adds:
+
+- `chunk_index`: Zero-based within its source Document and restarted for each file.
+- `start_index`: Character offset of the chunk in the complete source text, supplied
+  by LangChain's public text-splitter API.
+
+Empty source Documents produce no chunks. Non-empty chunks contain source text only;
+file paths and language labels remain metadata. Splitter whitespace stripping is
+disabled so source whitespace is preserved. Parent and within-parent ordering are
+preserved, making the output a deterministic shared corpus for future sparse and dense
+retrieval.
+
+BM25, dense retrieval, embeddings, vector storage, Reciprocal Rank Fusion,
+cross-encoder reranking, and LLM answer generation remain planned and are not
+implemented.
