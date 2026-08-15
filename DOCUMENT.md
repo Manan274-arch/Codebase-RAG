@@ -7,8 +7,8 @@ codebase question-answering RAG system. Given a natural-language question about 
 repository, it builds a structured code corpus, retrieves relevant code with directly
 linked context, and produces a citation-aware answer from that evidence.
 
-The current implementation stops after provider-agnostic generation orchestration and
-deterministic citation validation. A concrete generation backend, generated-answer
+The current implementation includes provider-agnostic generation orchestration,
+deterministic citation validation, and a concrete hosted Groq backend. Generated-answer
 quality evaluation, an application/API layer, and a frontend are not yet implemented.
 
 ## 2. Current System Architecture
@@ -28,6 +28,7 @@ ranking, and deterministic context completion:
 - Bounded one-hop relationship expansion adds explicitly connected chunks.
 - Context construction assigns stable evidence identities and query-local citation aliases.
 - Generation prompts an injected text backend and validates returned citation aliases.
+- The current concrete backend uses Groq-hosted `openai/gpt-oss-20b` inference.
 
 The corpus representation contains a deterministic structural summary followed by the
 original code. Exact source remains available in `metadata["raw_content"]`.
@@ -205,6 +206,8 @@ BM25 top 25   Persistent Qdrant
           Citation-Aware Evidence Bundle
                        ↓
              Citation-Aware Generation
+                       ↓
+        Groq API · openai/gpt-oss-20b
 ```
 
 - BM25 is a complementary lexical candidate source.
@@ -215,6 +218,7 @@ BM25 top 25   Persistent Qdrant
 - Relationship expansion adds only explicitly linked context after reranking.
 - Context construction packages final results without changing their retrieval order.
 - Generation consumes the context bundle without changing retrieval or evidence text.
+- Groq is isolated behind the provider-agnostic `TextGenerator` interface.
 
 ## 7. Context Construction
 
@@ -265,9 +269,56 @@ accepted. The context bundle remains the mapping back to canonical
 `source::chunk_index` evidence.
 
 An empty evidence bundle bypasses the generator and returns a fixed
-insufficient-evidence answer without citations. No provider SDK, model-generated JSON,
-retry loop, agent framework, or second validation call is used. A concrete local/free
-generation backend has not been frozen.
+insufficient-evidence answer without citations. No model-generated JSON, application
+retry loop, agent framework, or second validation call is used.
+
+### Groq backend
+
+`src/generation/groq.py` implements `GroqTextGenerator` with the official Groq Python
+SDK. Its data flow is:
+
+```text
+ContextBundle
+    ↓
+citation-aware prompt
+    ↓
+TextGenerator / GroqTextGenerator
+    ↓
+Groq hosted Chat Completions API
+    ↓
+openai/gpt-oss-20b
+    ↓
+citation validation
+    ↓
+GenerationResult
+```
+
+The backend sends the already constructed prompt as one user message. It performs no
+retrieval, context rendering, citation parsing, tool use, web search, code execution,
+streaming, or retry orchestration. Defaults are temperature `0.1`, maximum output `1024`
+tokens, and model `openai/gpt-oss-20b`; all three generation values can be changed when
+constructing the backend.
+
+`GROQ_API_KEY` is loaded on demand from the repository-root `.env` when the backend is
+constructed:
+
+```text
+GROQ_API_KEY=<your key>
+```
+
+Missing credentials, authentication failures, rate limiting, connection/API failures,
+and empty or malformed completions produce a chained `GenerationBackendError` where an
+underlying SDK error exists. `.env` files are ignored by Git, and no credential is
+stored in source, tests, or documentation. Process environment values, when present,
+take precedence over the file. Groq is hosted inference, not a local model. The
+`TextGenerator` boundary allows a future backend or model replacement without changing
+retrieval, context construction, or citation validation.
+
+The manually runnable `python -m scripts.smoke_groq_generation` check was validated
+against the real Groq API on August 15, 2026. A two-item synthetic `ContextBundle`
+produced an answer citing both `C1` and `C2`; `generate_answer()` extracted and accepted
+those aliases. This establishes live provider connectivity and contract compatibility,
+not end-to-end retrieval or generated-answer quality.
 
 ## 9. Evaluation Status
 
@@ -296,15 +347,15 @@ Implemented through provider-agnostic citation-aware generation:
 - relationship expansion;
 - deterministic citation-aware context construction with optional character budgeting;
 - grounded prompt construction and deterministic generated-citation validation;
+- hosted Groq generation using `openai/gpt-oss-20b` by default;
 - offline retrieval evaluation and baseline experiments.
 
 Not yet implemented:
 
 - model-specific token budgeting for generation;
-- a concrete local/free text-generation backend;
 - end-to-end generated-answer quality evaluation;
 - application/API layer;
 - frontend.
 
-The next project phase selects and evaluates a concrete generation backend over the
-deterministic evidence bundle.
+The next project phase evaluates generated-answer quality over the deterministic
+evidence bundle without changing the frozen retrieval pipeline.

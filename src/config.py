@@ -5,9 +5,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
 
+from dotenv import load_dotenv
+
 from src.indexing.embeddings import DEFAULT_DENSE_MODEL
 
 DenseSearchMode = Literal["exact", "hnsw"]
+_REPOSITORY_ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,3 +37,17 @@ class QdrantSettings:
             collection_name=os.getenv("CODEBASE_RAG_QDRANT_COLLECTION", "code_chunks"),
             search_mode=cast(DenseSearchMode, mode),
         )
+
+
+@dataclass(frozen=True, slots=True)
+class GroqSettings:
+    """Optional hosted-generation credentials loaded on demand."""
+
+    api_key: str | None = None
+
+    @classmethod
+    def from_environment(cls) -> "GroqSettings":
+        """Load Groq credentials from the process or repository-root ``.env``."""
+        load_dotenv(_REPOSITORY_ENV_FILE, override=False)
+        api_key = os.getenv("GROQ_API_KEY")
+        return cls(api_key=api_key.strip() if api_key and api_key.strip() else None)

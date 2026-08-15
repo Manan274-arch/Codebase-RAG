@@ -4,9 +4,9 @@ This project is the retrieval, context, and generation foundation for a codebase
 question-answering RAG system. It ingests a software repository, retrieves relevant code
 plus explicitly linked context, and generates citation-aware answers from that evidence.
 
-The repository currently implements provider-agnostic generation orchestration and
-deterministic citation validation. A concrete generation backend, an API/application
-layer, and a frontend are not yet built.
+The repository currently implements provider-agnostic generation orchestration,
+deterministic citation validation, and hosted inference through Groq. An
+API/application layer and a frontend are not yet built.
 
 ## Architecture
 
@@ -39,6 +39,8 @@ Context Construction
 Citation-Aware Evidence Bundle
     ↓
 Citation-Aware Generation
+    ↓
+Groq API · openai/gpt-oss-20b
 ```
 
 BM25 contributes lexical matches and dense retrieval supplies the primary semantic
@@ -61,6 +63,7 @@ the selected production path.
 - Bounded one-hop relationship expansion after reranking.
 - Deterministic context construction with stable evidence IDs and query-local citations.
 - Provider-agnostic grounded generation with deterministic citation validation.
+- Hosted Groq generation using `openai/gpt-oss-20b` by default.
 - Offline retrieval evaluation with frozen fixtures and graded relevance labels.
 
 ## Retrieval design
@@ -83,13 +86,19 @@ existing canonical identity, and renders complete evidence blocks without modify
 chunk content. A permanent canonical evidence ID uses `source::chunk_index`; the
 separate query-local citation alias uses `C1`, `C2`, and so on. An optional character
 budget admits only complete, rank-preserving blocks. Model-specific token budgeting and
-a concrete generation backend are not frozen yet.
+end-to-end generated-answer evaluation are not implemented yet.
 
 Generation consumes the existing `ContextBundle` without rebuilding its evidence text.
 An injected text generator receives a concise grounding prompt, and generated citation
 aliases such as `[C1]` are checked against the bundle. Unknown aliases are rejected
 rather than removed or accepted. The bundle retains the mapping from each query-local
 alias to its permanent `source::chunk_index` evidence identity.
+
+`TextGenerator` remains the provider boundary. The first concrete implementation,
+`GroqTextGenerator`, sends only the constructed prompt to Groq's hosted Chat Completions
+API and defaults to `openai/gpt-oss-20b`. Retrieval and context construction contain no
+Groq-specific logic, so another backend or model can be substituted without redesigning
+the pipeline.
 
 On Benchmark v2, branch overlap leaves roughly 38 unique candidates per query on
 average instead of the maximum 50.
@@ -148,12 +157,12 @@ Completed:
 - relationship expansion;
 - deterministic citation-aware context construction;
 - provider-agnostic answer generation and citation validation;
+- hosted Groq generation with `openai/gpt-oss-20b`;
 - offline retrieval evaluation.
 
 Next:
 
 - model-specific token budgeting;
-- a concrete local/free generation backend;
 - end-to-end generated-answer evaluation;
 - API/application layer;
 - frontend.
@@ -169,6 +178,27 @@ python -m venv .venv
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
+
+Place the Groq credential in the repository-root `.env`:
+
+```text
+GROQ_API_KEY=<your key>
+```
+
+`GroqTextGenerator()` loads this file automatically when constructed; no manual shell
+environment setup is required. Existing process environment values take precedence.
+Credentials are never required for ingestion, retrieval, context construction, or
+offline tests. The local `.env` remains ignored by Git.
+
+Run the manual live generation smoke test with:
+
+```shell
+python -m scripts.smoke_groq_generation
+```
+
+This sends one small synthetic `ContextBundle` through the real Groq backend and the
+normal citation-validation path. It is a connectivity and contract check, not
+end-to-end retrieval or generated-answer quality evaluation.
 
 Build or validate a persistent local index for a repository:
 
