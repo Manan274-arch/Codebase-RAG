@@ -200,6 +200,54 @@ This sends one small synthetic `ContextBundle` through the real Groq backend and
 normal citation-validation path. It is a connectivity and contract check, not
 end-to-end retrieval or generated-answer quality evaluation.
 
+Run the complete RAG flow directly from a public Git repository URL:
+
+```shell
+python -m scripts.run_codebase_rag --repo https://github.com/OWNER/REPOSITORY.git --question "How does the main pipeline work?"
+```
+
+Repeat `--question` to ask several questions while reusing the same prepared corpus,
+BM25 index, Qdrant collection, embedding model, and reranker. Use `--commit` with a
+full commit SHA to select an exact revision. Without it, the command resolves the
+remote default branch once and pins that SHA for the run. The URL, resolved SHA,
+checkout path, source/chunk counts, index status, answer, validated citation IDs, and
+cited evidence are printed.
+
+Repositories are cached outside tracked source code under
+`.cache/codebase-rag/repositories/`. Each immutable checkout is keyed by repository URL
+and commit SHA, and clean cached checkouts are reused. Acquisition supports public
+HTTPS Git URLs; private-repository authentication is intentionally out of scope.
+Fetched repositories are untrusted input: the application only reads supported source
+files through the existing ingestion pipeline. It never executes repository code,
+runs setup scripts, or installs repository dependencies.
+
+The full live smoke test used this exact pinned command (PowerShell backticks only wrap
+the command for readability):
+
+```powershell
+python -m scripts.run_codebase_rag `
+  --repo "https://github.com/Manan274-arch/Title-block-and-BOM-extraction-for-deciding-raw-materials.git" `
+  --commit de4a29e4d453d0695b1a2cf5d76f8285032bea70 `
+  --question "What stages does DrawingPipeline.run execute, and when does it stop early?" `
+  --question "How does BOMExtractor identify BOM columns and decide which table rows are valid?" `
+  --question "How does MaterialAggregator decide whether to derive raw materials from BOM rows or the title block, and how are quantities combined?" `
+  --question "How is application configuration organized, and how does with_output_directory change output paths?"
+```
+
+Groq's token-per-minute limit may require running the same command with one question at
+a time. The repository checkout and Qdrant collection are reused across those runs.
+
+The same lifecycle is available from Python:
+
+```python
+from src.codebase_rag import CodebaseRAG
+
+with CodebaseRAG.from_repository_url("https://github.com/OWNER/REPOSITORY.git") as rag:
+    result = rag.ask("How does the main pipeline work?")
+    print(result.answer)
+    print(result.citation_ids)
+```
+
 Build or validate a persistent local index for a repository:
 
 ```shell

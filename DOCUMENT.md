@@ -320,6 +320,42 @@ produced an answer citing both `C1` and `C2`; `generate_answer()` extracted and 
 those aliases. This establishes live provider connectivity and contract compatibility,
 not end-to-end retrieval or generated-answer quality.
 
+### Repository URL lifecycle
+
+`src/repository_acquisition.py` keeps Git acquisition separate from ingestion. It
+accepts a public HTTPS Git URL and an optional full commit SHA, maintains a mirror under
+`.cache/codebase-rag/repositories/`, and creates a detached checkout named by the
+resolved commit. If no commit is supplied, the remote default branch HEAD is resolved
+once and that immutable SHA is used throughout the run. Results therefore expose the
+original URL, exact SHA, and local checkout path. Clean matching checkouts are reused;
+unexpected local changes are discarded before reuse.
+
+Acquisition disables repository hooks and the Git `ext` protocol. The checkout is
+treated as untrusted data: only supported, non-symlinked source files are read by the
+existing ingestion pipeline. Repository programs, setup scripts, and dependency
+installation are never run.
+
+`CodebaseRAG.from_repository_url(...)` in `src/codebase_rag.py` owns the reusable
+application lifecycle. Construction acquires and pins the repository, builds the
+enriched corpus once, creates or validates a repository-and-commit-specific Qdrant
+collection, and constructs BM25, dense retrieval, reranking, relationship expansion,
+and the Groq generator once. Each `ask(...)` call reuses those prepared components and
+returns the `GenerationResult`, validated citation aliases, the exact cited evidence,
+and the `ContextBundle`. `python -m scripts.run_codebase_rag` is the thin manual CLI for
+this same production API; it does not duplicate retrieval or generation logic.
+
+The first full live run used
+`https://github.com/Manan274-arch/Title-block-and-BOM-extraction-for-deciding-raw-materials.git`
+at commit `de4a29e4d453d0695b1a2cf5d76f8285032bea70`. It discovered 13
+supported files, produced 100 chunks, built and then reused the exact-search Qdrant
+collection, and completed four real Groq questions with validated citations. A batched
+attempt hit Groq's 8,000-token-per-minute limit after two answers, so the remaining
+questions were resumed individually without changing retrieval behavior. Manual review
+also found one grounded-answer defect: the material-aggregation answer incorrectly
+described missing quantities as ignored or zero, although `_complete_total` returns
+`None` if any grouped quantity is missing. This smoke test establishes end-to-end
+integration and citation enforcement, not formal answer-quality evaluation.
+
 ## 9. Evaluation Status
 
 Retrieval is covered by deterministic frozen fixtures and offline evaluation at multiple

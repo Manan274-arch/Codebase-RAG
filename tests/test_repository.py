@@ -96,6 +96,20 @@ def test_does_not_recurse_through_symlinked_directories(tmp_path: Path) -> None:
     assert find_source_files(repository) == []
 
 
+def test_does_not_follow_symlinked_source_files(tmp_path: Path) -> None:
+    repository = tmp_path / "repository"
+    external = tmp_path / "external.py"
+    repository.mkdir()
+    external.write_text("secret = True", encoding="utf-8")
+
+    try:
+        (repository / "linked.py").symlink_to(external)
+    except (NotImplementedError, OSError) as error:
+        pytest.skip(f"File symlinks are unavailable: {error}")
+
+    assert find_source_files(repository) == []
+
+
 def test_matches_extensions_case_insensitively(tmp_path: Path) -> None:
     create_files(tmp_path, ["module.PY", "component.TsX", "README.MD"])
 

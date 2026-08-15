@@ -89,8 +89,12 @@ def find_source_files(repo_path: Path) -> list[Path]:
         )
 
         for file_name in file_names:
-            if Path(file_name).suffix.casefold() in SUPPORTED_SOURCE_EXTENSIONS:
-                source_files.append((current_path / file_name).relative_to(repo_path))
+            file_path = current_path / file_name
+            if (
+                file_path.suffix.casefold() in SUPPORTED_SOURCE_EXTENSIONS
+                and not file_path.is_symlink()
+            ):
+                source_files.append(file_path.relative_to(repo_path))
 
     return sorted(source_files, key=lambda path: path.as_posix())
 

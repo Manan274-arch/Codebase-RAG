@@ -11,6 +11,7 @@ venv/
 env/
 
 # Tool caches and coverage
+.cache/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
