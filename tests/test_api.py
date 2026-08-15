@@ -93,6 +93,29 @@ def test_health_endpoint() -> None:
     assert response.json() == {"status": "ok"}
 
 
+def test_cors_allows_only_local_vite_origins() -> None:
+    with TestClient(create_app(FakeFactory())) as client:
+        allowed = client.options(
+            "/api/repositories",
+            headers={
+                "Origin": "http://localhost:5173",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "Content-Type",
+            },
+        )
+        rejected = client.options(
+            "/api/repositories",
+            headers={
+                "Origin": "https://untrusted.example",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+
+    assert allowed.status_code == 200
+    assert allowed.headers["access-control-allow-origin"] == "http://localhost:5173"
+    assert "access-control-allow-origin" not in rejected.headers
+
+
 def test_loads_repository_once_and_returns_metadata() -> None:
     factory = FakeFactory()
     commit = "b" * 40

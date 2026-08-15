@@ -6,7 +6,7 @@ plus explicitly linked context, and generates citation-aware answers from that e
 
 The repository currently implements provider-agnostic generation orchestration,
 deterministic citation validation, hosted inference through Groq, and a small FastAPI
-demo backend. A frontend is not yet built.
+demo backend with a focused React/TypeScript frontend.
 
 ## Architecture
 
@@ -65,6 +65,7 @@ the selected production path.
 - Provider-agnostic grounded generation with deterministic citation validation.
 - Hosted Groq generation using `openai/gpt-oss-20b` by default.
 - A process-local FastAPI backend that retains prepared repository sessions.
+- A responsive React/TypeScript demo for loading repositories and reading cited answers.
 - Offline retrieval evaluation with frozen fixtures and graded relevance labels.
 
 ## Retrieval design
@@ -161,13 +162,13 @@ Completed:
 - hosted Groq generation with `openai/gpt-oss-20b`;
 - automatic Git acquisition and reusable end-to-end orchestration;
 - process-local FastAPI demo backend;
+- React/TypeScript/Vite single-screen demo frontend;
 - offline retrieval evaluation.
 
 Next:
 
 - model-specific token budgeting;
 - end-to-end generated-answer evaluation;
-- frontend.
 
 ## Development and testing
 
@@ -250,9 +251,9 @@ with CodebaseRAG.from_repository_url("https://github.com/OWNER/REPOSITORY.git") 
     print(result.citation_ids)
 ```
 
-### Demo backend
+### Phase 3 demo
 
-Start the Phase 3 FastAPI backend locally with:
+Start the FastAPI backend from the repository root:
 
 ```shell
 uvicorn src.api.app:app --reload
@@ -272,6 +273,36 @@ session calls `CodebaseRAG.close()`, and application shutdown closes every retai
 session. This demo intentionally has no database, cross-worker synchronization,
 authentication, background queue, or deployment layer. The direct Python API above
 remains supported and unchanged.
+
+In a second terminal, start the React frontend:
+
+```shell
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`. The frontend calls `http://localhost:8000` by default.
+To use a different backend during local development, copy `frontend/.env.example` to
+`frontend/.env.local` and set:
+
+```text
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+The one-screen flow is: enter a public GitHub URL and optional commit, wait for the
+repository to be acquired and indexed, ask a question, read the cited answer, and
+expand the evidence cards to inspect source snippets and line information. Changing
+repositories releases the previous backend session. Browser state is intentionally not
+persisted across refreshes.
+
+Frontend quality checks run from `frontend/`:
+
+```shell
+npm run typecheck
+npm run test
+npm run build
+```
 
 Build or validate a persistent local index for a repository:
 

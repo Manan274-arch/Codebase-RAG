@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.models import (
     AskRequest,
@@ -24,6 +25,11 @@ from src.api.service import (
 from src.codebase_rag import CodebaseAnswer, CodebaseRAGError
 from src.repository_acquisition import RepositoryAcquisitionError
 
+_LOCAL_FRONTEND_ORIGINS = (
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+)
+
 
 def create_app(factory: RepositoryFactory = load_codebase_rag) -> FastAPI:
     """Create one application with its own process-local repository registry."""
@@ -38,6 +44,12 @@ def create_app(factory: RepositoryFactory = load_codebase_rag) -> FastAPI:
             service.close_all()
 
     application = FastAPI(title="Codebase RAG Demo API", lifespan=lifespan)
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=list(_LOCAL_FRONTEND_ORIGINS),
+        allow_methods=["GET", "POST", "DELETE"],
+        allow_headers=["Content-Type"],
+    )
 
     @application.get("/api/health", response_model=HealthResponse)
     def health() -> HealthResponse:

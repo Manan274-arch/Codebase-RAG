@@ -9,8 +9,8 @@ linked context, and produces a citation-aware answer from that evidence.
 
 The current implementation includes provider-agnostic generation orchestration,
 deterministic citation validation, a concrete hosted Groq backend, and a process-local
-FastAPI demo backend. Generated-answer quality evaluation and a frontend are not yet
-implemented.
+FastAPI demo backend with a React/TypeScript frontend. Generated-answer quality
+evaluation is not yet implemented.
 
 ## 2. Current System Architecture
 
@@ -384,6 +384,27 @@ remains unchanged.
 Run locally with `uvicorn src.api.app:app --reload`. No database, Redis, workers,
 authentication, Docker, or deployment configuration belongs to this demo phase.
 
+### Phase 3 demo frontend
+
+`frontend/` is an independent React, TypeScript, and Vite application. `src/api.ts`
+contains the backend contract and all fetch calls; `App.tsx` owns the single screen's
+ordinary React state. No router, global state library, query framework, persistence, or
+component library is involved.
+
+The frontend sends repository creation, question, and DELETE requests to the existing
+API and renders only its returned fields. Answers preserve generated citation aliases.
+Evidence cards display the validated citation ID, canonical evidence ID, source path,
+line range, chunk index, retrieval origin, and supplied snippet in a horizontally
+scrollable code block. A missing process-local session resets the UI and tells the user
+to load the repository again.
+
+Vite runs at `http://localhost:5173` and defaults to the API at
+`http://localhost:8000`. `VITE_API_BASE_URL` can override the API origin. FastAPI CORS
+is restricted to `http://localhost:5173` and `http://127.0.0.1:5173`; it is not an
+unrestricted deployment policy. Start the frontend with `cd frontend`, `npm install`,
+and `npm run dev` after starting the backend. Browser session persistence and
+deployment infrastructure remain out of scope.
+
 ## 9. Evaluation Status
 
 Retrieval is covered by deterministic frozen fixtures and offline evaluation at multiple
@@ -414,13 +435,13 @@ Implemented through provider-agnostic citation-aware generation:
 - hosted Groq generation using `openai/gpt-oss-20b` by default;
 - automatic Git acquisition and reusable end-to-end orchestration;
 - process-local FastAPI demo backend;
+- React/TypeScript/Vite single-screen demo frontend;
 - offline retrieval evaluation and baseline experiments.
 
 Not yet implemented:
 
 - model-specific token budgeting for generation;
 - end-to-end generated-answer quality evaluation;
-- frontend.
 
 The next project phase evaluates generated-answer quality over the deterministic
 evidence bundle without changing the frozen retrieval pipeline.
