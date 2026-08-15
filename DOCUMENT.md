@@ -2,14 +2,14 @@
 
 ## 1. Project Goal
 
-This project is the retrieval and context foundation for a multi-language codebase
-question-answering RAG system. Given a natural-language question about a repository, it
-builds a structured code corpus, retrieves relevant code with directly linked context,
-and packages that evidence deterministically.
+This project is the retrieval, context, and generation foundation for a multi-language
+codebase question-answering RAG system. Given a natural-language question about a
+repository, it builds a structured code corpus, retrieves relevant code with directly
+linked context, and produces a citation-aware answer from that evidence.
 
-The current implementation stops after context construction. LLM answers,
-generated-answer citations, an application/API layer, and a frontend are not yet
-implemented.
+The current implementation stops after provider-agnostic generation orchestration and
+deterministic citation validation. A concrete generation backend, generated-answer
+quality evaluation, an application/API layer, and a frontend are not yet implemented.
 
 ## 2. Current System Architecture
 
@@ -27,6 +27,7 @@ ranking, and deterministic context completion:
 - A local cross-encoder determines relevance order.
 - Bounded one-hop relationship expansion adds explicitly connected chunks.
 - Context construction assigns stable evidence identities and query-local citation aliases.
+- Generation prompts an injected text backend and validates returned citation aliases.
 
 The corpus representation contains a deterministic structural summary followed by the
 original code. Exact source remains available in `metadata["raw_content"]`.
@@ -202,6 +203,8 @@ BM25 top 25   Persistent Qdrant
               Context Construction
                        ↓
           Citation-Aware Evidence Bundle
+                       ↓
+             Citation-Aware Generation
 ```
 
 - BM25 is a complementary lexical candidate source.
@@ -211,6 +214,7 @@ BM25 top 25   Persistent Qdrant
 - The cross-encoder determines relevance ordering.
 - Relationship expansion adds only explicitly linked context after reranking.
 - Context construction packages final results without changing their retrieval order.
+- Generation consumes the context bundle without changing retrieval or evidence text.
 
 ## 7. Context Construction
 
@@ -245,7 +249,27 @@ When source-line metadata is unavailable, no line range is invented. The optiona
 and never truncates a chunk. No tokenizer or model-specific token policy is introduced
 at this stage.
 
-## 8. Evaluation Status
+## 8. Citation-Aware Generation
+
+`src/generation/generator.py` defines a minimal `TextGenerator` protocol and the
+`generate_answer(question, context, generator)` orchestration entry point. The injected
+backend receives a deterministic prompt containing the user question and the existing
+`ContextBundle.rendered_context`; generation does not recreate context formatting.
+
+The prompt treats repository content as evidence rather than instructions, requires
+grounded factual claims, and uses query-local citations such as `[C1]` and `[C1][C2]`.
+Returned text remains unchanged. Citation aliases are extracted deterministically,
+deduplicated in first-occurrence order, and checked against `ContextBundle.evidence`.
+Any unknown alias raises `CitationValidationError`; it is neither removed nor silently
+accepted. The context bundle remains the mapping back to canonical
+`source::chunk_index` evidence.
+
+An empty evidence bundle bypasses the generator and returns a fixed
+insufficient-evidence answer without citations. No provider SDK, model-generated JSON,
+retry loop, agent framework, or second validation call is used. A concrete local/free
+generation backend has not been frozen.
+
+## 9. Evaluation Status
 
 Retrieval is covered by deterministic frozen fixtures and offline evaluation at multiple
 cutoffs using Hit Rate, Recall, MRR, graded nDCG, category metrics, and linked-context
@@ -259,9 +283,9 @@ retrieval architecture is frozen.
 
 Focused retrieval tests, the full test suite, Ruff, and strict mypy currently pass.
 
-## 9. Current Project Boundary / Next Stage
+## 10. Current Project Boundary / Next Stage
 
-Implemented through context construction:
+Implemented through provider-agnostic citation-aware generation:
 
 - repository ingestion and multi-language chunking;
 - structural enrichment and conservative relationship linking;
@@ -271,15 +295,16 @@ Implemented through context construction:
 - cross-encoder reranking;
 - relationship expansion;
 - deterministic citation-aware context construction with optional character budgeting;
+- grounded prompt construction and deterministic generated-citation validation;
 - offline retrieval evaluation and baseline experiments.
 
 Not yet implemented:
 
 - model-specific token budgeting for generation;
-- LLM answer generation;
-- grounded source citations and snippets in generated answers;
+- a concrete local/free text-generation backend;
+- end-to-end generated-answer quality evaluation;
 - application/API layer;
 - frontend.
 
-The next project phase begins with answer generation over the deterministic evidence
-bundle.
+The next project phase selects and evaluates a concrete generation backend over the
+deterministic evidence bundle.

@@ -1,12 +1,12 @@
 # Multi-Language Codebase Q&A RAG Assistant
 
-This project is the retrieval and context foundation for a codebase question-answering
-RAG system. It ingests a software repository, retrieves relevant code plus explicitly
-linked context, and packages that evidence for natural-language questions.
+This project is the retrieval, context, and generation foundation for a codebase
+question-answering RAG system. It ingests a software repository, retrieves relevant code
+plus explicitly linked context, and generates citation-aware answers from that evidence.
 
-The repository currently implements ingestion through deterministic context
-construction. Answer generation, generated-answer citations, an API/application layer,
-and a frontend are not yet built.
+The repository currently implements provider-agnostic generation orchestration and
+deterministic citation validation. A concrete generation backend, an API/application
+layer, and a frontend are not yet built.
 
 ## Architecture
 
@@ -37,6 +37,8 @@ Relationship Expansion
     ↓
 Context Construction
 Citation-Aware Evidence Bundle
+    ↓
+Citation-Aware Generation
 ```
 
 BM25 contributes lexical matches and dense retrieval supplies the primary semantic
@@ -58,6 +60,7 @@ the selected production path.
 - Local cross-encoder reranking.
 - Bounded one-hop relationship expansion after reranking.
 - Deterministic context construction with stable evidence IDs and query-local citations.
+- Provider-agnostic grounded generation with deterministic citation validation.
 - Offline retrieval evaluation with frozen fixtures and graded relevance labels.
 
 ## Retrieval design
@@ -80,7 +83,13 @@ existing canonical identity, and renders complete evidence blocks without modify
 chunk content. A permanent canonical evidence ID uses `source::chunk_index`; the
 separate query-local citation alias uses `C1`, `C2`, and so on. An optional character
 budget admits only complete, rank-preserving blocks. Model-specific token budgeting and
-answer generation are not implemented yet.
+a concrete generation backend are not frozen yet.
+
+Generation consumes the existing `ContextBundle` without rebuilding its evidence text.
+An injected text generator receives a concise grounding prompt, and generated citation
+aliases such as `[C1]` are checked against the bundle. Unknown aliases are rejected
+rather than removed or accepted. The bundle retains the mapping from each query-local
+alias to its permanent `source::chunk_index` evidence identity.
 
 On Benchmark v2, branch overlap leaves roughly 38 unique candidates per query on
 average instead of the maximum 50.
@@ -138,13 +147,14 @@ Completed:
 - cross-encoder reranking;
 - relationship expansion;
 - deterministic citation-aware context construction;
+- provider-agnostic answer generation and citation validation;
 - offline retrieval evaluation.
 
 Next:
 
 - model-specific token budgeting;
-- answer generation;
-- grounded citations and source snippets;
+- a concrete local/free generation backend;
+- end-to-end generated-answer evaluation;
 - API/application layer;
 - frontend.
 
