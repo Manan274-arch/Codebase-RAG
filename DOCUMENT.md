@@ -32,6 +32,18 @@ ranking, and deterministic context completion:
 - The current concrete backend uses Groq-hosted `openai/gpt-oss-20b` inference.
 - The demo HTTP boundary retains prepared `CodebaseRAG` sessions in process memory.
 
+The physical repository layout follows those boundaries:
+
+- `frontend/` owns only the React/TypeScript/Vite client.
+- `backend/` owns only FastAPI models, session services, and HTTP application setup.
+- `src/ingestion/`, `src/chunking/`, `src/enrichment/`, `src/indexing/`,
+  `src/retrieval/`, and `src/generation/` own the production RAG stages.
+- `src/pipeline/` composes those stages into corpus construction and the reusable
+  end-to-end `CodebaseRAG` lifecycle.
+- `evaluation/` owns offline metrics, historical retrievers, runners, and frozen
+  benchmark fixtures; production code does not import it.
+- `tests/` mirrors the backend and production/evaluation responsibility areas.
+
 The corpus representation contains a deterministic structural summary followed by the
 original code. Exact source remains available in `metadata["raw_content"]`.
 
@@ -162,7 +174,7 @@ schema version, embedding model, and a deterministic corpus fingerprint. Matchin
 are reused without re-embedding, while changed/incompatible corpora require an explicit
 rebuild.
 
-The old brute-force implementation remains under `src/evaluation/` as migration evidence,
+The old brute-force implementation remains under `evaluation/` as migration evidence,
 not as a production backend. Persistent Qdrant exact search reproduced its top-25 results
 and labeled metrics exactly, and the full pipeline preserved nDCG@5 0.8320 and linked
 coverage 1.0.
@@ -324,7 +336,7 @@ not end-to-end retrieval or generated-answer quality.
 
 ### Repository URL lifecycle
 
-`src/repository_acquisition.py` keeps Git acquisition separate from ingestion. It
+`src/ingestion/acquisition.py` keeps Git acquisition separate from source loading. It
 accepts a public HTTPS Git URL and an optional full commit SHA, maintains a mirror under
 `.cache/codebase-rag/repositories/`, and creates a detached checkout named by the
 resolved commit. If no commit is supplied, the remote default branch HEAD is resolved
@@ -337,7 +349,7 @@ treated as untrusted data: only supported, non-symlinked source files are read b
 existing ingestion pipeline. Repository programs, setup scripts, and dependency
 installation are never run.
 
-`CodebaseRAG.from_repository_url(...)` in `src/codebase_rag.py` owns the reusable
+`CodebaseRAG.from_repository_url(...)` in `src/pipeline/codebase_rag.py` owns the reusable
 application lifecycle. Construction acquires and pins the repository, builds the
 enriched corpus once, creates or validates a repository-and-commit-specific Qdrant
 collection, and constructs BM25, dense retrieval, reranking, relationship expansion,
@@ -360,7 +372,7 @@ integration and citation enforcement, not formal answer-quality evaluation.
 
 ### Phase 3 demo API
 
-`src/api/app.py` provides the deliberately small FastAPI boundary:
+`backend/app.py` provides the deliberately small FastAPI boundary:
 
 - `GET /api/health`;
 - `POST /api/repositories`;
@@ -381,12 +393,13 @@ new retrieval or citation processing. Sessions are intentionally process-local a
 not shared across workers or restored after restart. The direct Python orchestration API
 remains unchanged.
 
-Run locally with `uvicorn src.api.app:app --reload`. No database, Redis, workers,
+Run locally with `uvicorn backend.app:app --reload`. No database, Redis, workers,
 authentication, Docker, or deployment configuration belongs to this demo phase.
 
 ### Phase 3 demo frontend
 
-`frontend/` is an independent React, TypeScript, and Vite application. `src/api.ts`
+`frontend/` is an independent React, TypeScript, and Vite application.
+`frontend/src/api.ts`
 contains the backend contract and all fetch calls; `App.tsx` owns the single screen's
 ordinary React state. No router, global state library, query framework, persistence, or
 component library is involved.

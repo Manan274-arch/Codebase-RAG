@@ -6,7 +6,7 @@ from typing import Literal, Protocol
 
 from langchain_core.documents import Document
 
-from src.ingestion.relationships import (
+from src.enrichment.relationships import (
     RELATED_HTTP_CALL_CHUNKS_KEY,
     RELATED_ROUTE_CHUNKS_KEY,
 )

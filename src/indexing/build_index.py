@@ -7,7 +7,7 @@ from src.retrieval import _torch_only  # noqa: F401
 from src.config import QdrantSettings
 from src.indexing.embeddings import SentenceTransformerBackend
 from src.indexing.qdrant_index import QdrantCodeIndex
-from src.ingestion.pipeline import build_enriched_corpus
+from src.pipeline.corpus import build_enriched_corpus
 
 
 def main() -> None:

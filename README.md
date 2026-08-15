@@ -10,6 +10,13 @@ demo backend with a focused React/TypeScript frontend.
 
 ## Architecture
 
+The repository is split by responsibility: `frontend/` contains only the Vite client,
+`backend/` contains only the FastAPI boundary, `src/` contains production RAG stages,
+`evaluation/` contains offline benchmarks and their frozen fixtures, and `tests/`
+mirrors those production areas. Within `src/`, acquisition/loading, chunking,
+enrichment, indexing, retrieval, generation, and end-to-end orchestration live in
+separate stage packages.
+
 ```text
 Repository
     ↓
@@ -137,7 +144,7 @@ claim.
 Reproduce the final candidate-strategy comparison with:
 
 ```shell
-python -m src.evaluation.runners.evaluate_qdrant_migration
+python -m evaluation.runners.evaluate_qdrant_migration
 ```
 
 The first real-model run may download `jinaai/jina-embeddings-v2-base-code` and
@@ -179,7 +186,7 @@ python -m venv .venv
 # Windows PowerShell
 .venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
+python -m pip install -r requirements.txt
 ```
 
 Place the Groq credential in the repository-root `.env`:
@@ -243,7 +250,7 @@ a time. The repository checkout and Qdrant collection are reused across those ru
 The same lifecycle is available from Python:
 
 ```python
-from src.codebase_rag import CodebaseRAG
+from src.pipeline.codebase_rag import CodebaseRAG
 
 with CodebaseRAG.from_repository_url("https://github.com/OWNER/REPOSITORY.git") as rag:
     result = rag.ask("How does the main pipeline work?")
@@ -256,7 +263,7 @@ with CodebaseRAG.from_repository_url("https://github.com/OWNER/REPOSITORY.git") 
 Start the FastAPI backend from the repository root:
 
 ```shell
-uvicorn src.api.app:app --reload
+uvicorn backend.app:app --reload
 ```
 
 It exposes only:
@@ -283,8 +290,8 @@ npm run dev
 ```
 
 Open `http://localhost:5173`. The frontend calls `http://localhost:8000` by default.
-To use a different backend during local development, copy `frontend/.env.example` to
-`frontend/.env.local` and set:
+To use a different backend during local development, create an ignored
+`frontend/.env.local` file containing:
 
 ```text
 VITE_API_BASE_URL=http://localhost:8000
@@ -326,11 +333,11 @@ Run the quality gates:
 ```shell
 pytest
 ruff check .
-mypy src
+mypy
 ```
 
 Additional historical evaluation entry points remain available under
-`src/evaluation/runners/`. They reproduce evaluated baselines and do not define the
+`evaluation/runners/`. They reproduce evaluated baselines and do not define the
 production retrieval architecture.
 
 For architectural rationale and project boundaries, see [DOCUMENT.md](DOCUMENT.md).

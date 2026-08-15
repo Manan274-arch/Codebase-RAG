@@ -3,7 +3,7 @@
 import argparse
 import sys
 
-from src.codebase_rag import CodebaseRAG
+from src.pipeline.codebase_rag import CodebaseRAG
 
 
 def main() -> int:

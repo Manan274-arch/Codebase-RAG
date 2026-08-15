@@ -1,0 +1,10 @@
+target-version = "py311"
+line-length = 88
+src = ["src", "backend", "evaluation", "tests"]
+
+[lint]
+select = ["E", "F", "I", "UP"]
+
+[lint.per-file-ignores]
+"evaluation/build_benchmark_v2_fixture.py" = ["E501"]
+"evaluation/fixtures/retrieval_eval_repo_v2/**" = ["E501", "I001"]

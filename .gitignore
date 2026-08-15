@@ -24,7 +24,6 @@ htmlcov/
 # Environment files
 .env
 .env.*
-!.env.example
 
 # Editors and IDEs
 .idea/
