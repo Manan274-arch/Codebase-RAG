@@ -2,12 +2,13 @@
 
 ## 1. Project Goal
 
-This project is the retrieval foundation for a multi-language codebase question-answering
-RAG system. Given a natural-language question about a repository, it builds a structured
-code corpus and returns relevant code together with directly linked context.
+This project is the retrieval and context foundation for a multi-language codebase
+question-answering RAG system. Given a natural-language question about a repository, it
+builds a structured code corpus, retrieves relevant code with directly linked context,
+and packages that evidence deterministically.
 
-The current implementation stops after retrieval. Context construction for generation,
-LLM answers, answer citations, an application/API layer, and a frontend are not yet
+The current implementation stops after context construction. LLM answers,
+generated-answer citations, an application/API layer, and a frontend are not yet
 implemented.
 
 ## 2. Current System Architecture
@@ -25,6 +26,7 @@ ranking, and deterministic context completion:
 - A score-free union deduplicates candidates by canonical chunk identity.
 - A local cross-encoder determines relevance order.
 - Bounded one-hop relationship expansion adds explicitly connected chunks.
+- Context construction assigns stable evidence identities and query-local citation aliases.
 
 The corpus representation contains a deterministic structural summary followed by the
 original code. Exact source remains available in `metadata["raw_content"]`.
@@ -197,7 +199,9 @@ BM25 top 25   Persistent Qdrant
                        ↓
              Relationship Expansion
                        ↓
-                Retrieved Context
+              Context Construction
+                       ↓
+          Citation-Aware Evidence Bundle
 ```
 
 - BM25 is a complementary lexical candidate source.
@@ -206,8 +210,42 @@ BM25 top 25   Persistent Qdrant
 - Candidate union assigns no combined retrieval score.
 - The cross-encoder determines relevance ordering.
 - Relationship expansion adds only explicitly linked context after reranking.
+- Context construction packages final results without changing their retrieval order.
 
-## 7. Evaluation Status
+## 7. Context Construction
+
+`src/generation/context.py` accepts the ordered `ExpandedSearchResult` sequence produced
+after relationship expansion. It removes exact duplicate chunks by the existing
+canonical identity while preserving the first occurrence and final result order.
+
+Each `EvidenceItem` keeps two distinct identifiers:
+
+```text
+canonical evidence ID = source::chunk_index
+citation alias = C1, C2, ...
+```
+
+The canonical ID is permanent corpus identity. The citation alias is assigned only
+within one constructed context after deduplication. Evidence also retains source,
+chunk index, unchanged page content, available source lines, and whether it originated
+from normal retrieval or relationship expansion.
+
+Rendered blocks use this deterministic format:
+
+```text
+[C1] src/api/users.py:42-67
+<unchanged chunk page_content>
+
+[C2] src/services/auth.py
+<unchanged chunk page_content>
+```
+
+When source-line metadata is unavailable, no line range is invented. The optional
+`max_chars` budget counts the exact rendered text, admits only complete prefix blocks,
+and never truncates a chunk. No tokenizer or model-specific token policy is introduced
+at this stage.
+
+## 8. Evaluation Status
 
 Retrieval is covered by deterministic frozen fixtures and offline evaluation at multiple
 cutoffs using Hit Rate, Recall, MRR, graded nDCG, category metrics, and linked-context
@@ -221,9 +259,9 @@ retrieval architecture is frozen.
 
 Focused retrieval tests, the full test suite, Ruff, and strict mypy currently pass.
 
-## 8. Current Project Boundary / Next Stage
+## 9. Current Project Boundary / Next Stage
 
-Implemented through retrieval:
+Implemented through context construction:
 
 - repository ingestion and multi-language chunking;
 - structural enrichment and conservative relationship linking;
@@ -232,15 +270,16 @@ Implemented through retrieval:
 - score-free candidate union;
 - cross-encoder reranking;
 - relationship expansion;
+- deterministic citation-aware context construction with optional character budgeting;
 - offline retrieval evaluation and baseline experiments.
 
 Not yet implemented:
 
-- context construction and token budgeting for generation;
+- model-specific token budgeting for generation;
 - LLM answer generation;
 - grounded source citations and snippets in generated answers;
 - application/API layer;
 - frontend.
 
-The next project phase begins with context construction after the frozen retrieval
-pipeline.
+The next project phase begins with answer generation over the deterministic evidence
+bundle.

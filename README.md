@@ -1,11 +1,12 @@
 # Multi-Language Codebase Q&A RAG Assistant
 
-This project is the retrieval foundation for a codebase question-answering RAG system.
-It ingests a software repository and retrieves relevant code plus explicitly linked
-context for natural-language questions.
+This project is the retrieval and context foundation for a codebase question-answering
+RAG system. It ingests a software repository, retrieves relevant code plus explicitly
+linked context, and packages that evidence for natural-language questions.
 
-The repository currently implements ingestion through retrieval. Answer generation,
-generated-answer citations, an API/application layer, and a frontend are not yet built.
+The repository currently implements ingestion through deterministic context
+construction. Answer generation, generated-answer citations, an API/application layer,
+and a frontend are not yet built.
 
 ## Architecture
 
@@ -33,6 +34,9 @@ Score-Free Deduplicated Candidate Union
 Cross-Encoder Reranking
     ↓
 Relationship Expansion
+    ↓
+Context Construction
+Citation-Aware Evidence Bundle
 ```
 
 BM25 contributes lexical matches and dense retrieval supplies the primary semantic
@@ -53,6 +57,7 @@ the selected production path.
 - Score-free, provenance-preserving candidate union.
 - Local cross-encoder reranking.
 - Bounded one-hop relationship expansion after reranking.
+- Deterministic context construction with stable evidence IDs and query-local citations.
 - Offline retrieval evaluation with frozen fixtures and graded relevance labels.
 
 ## Retrieval design
@@ -69,6 +74,13 @@ dense, or both, including its original branch ranks. It does not create a fused 
 The cross-encoder jointly scores the question and every unique candidate to determine
 the relevance order. Relationship expansion then inserts bounded, directly linked
 chunks such as the backend route associated with a retrieved frontend HTTP call.
+
+Context construction consumes that final ordered result list, deduplicates it by the
+existing canonical identity, and renders complete evidence blocks without modifying
+chunk content. A permanent canonical evidence ID uses `source::chunk_index`; the
+separate query-local citation alias uses `C1`, `C2`, and so on. An optional character
+budget admits only complete, rank-preserving blocks. Model-specific token budgeting and
+answer generation are not implemented yet.
 
 On Benchmark v2, branch overlap leaves roughly 38 unique candidates per query on
 average instead of the maximum 50.
@@ -125,11 +137,12 @@ Completed:
 - candidate-union experiments;
 - cross-encoder reranking;
 - relationship expansion;
+- deterministic citation-aware context construction;
 - offline retrieval evaluation.
 
 Next:
 
-- context construction and token budgeting;
+- model-specific token budgeting;
 - answer generation;
 - grounded citations and source snippets;
 - API/application layer;
