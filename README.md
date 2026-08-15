@@ -5,8 +5,8 @@ question-answering RAG system. It ingests a software repository, retrieves relev
 plus explicitly linked context, and generates citation-aware answers from that evidence.
 
 The repository currently implements provider-agnostic generation orchestration,
-deterministic citation validation, and hosted inference through Groq. An
-API/application layer and a frontend are not yet built.
+deterministic citation validation, hosted inference through Groq, and a small FastAPI
+demo backend. A frontend is not yet built.
 
 ## Architecture
 
@@ -64,6 +64,7 @@ the selected production path.
 - Deterministic context construction with stable evidence IDs and query-local citations.
 - Provider-agnostic grounded generation with deterministic citation validation.
 - Hosted Groq generation using `openai/gpt-oss-20b` by default.
+- A process-local FastAPI backend that retains prepared repository sessions.
 - Offline retrieval evaluation with frozen fixtures and graded relevance labels.
 
 ## Retrieval design
@@ -158,13 +159,14 @@ Completed:
 - deterministic citation-aware context construction;
 - provider-agnostic answer generation and citation validation;
 - hosted Groq generation with `openai/gpt-oss-20b`;
+- automatic Git acquisition and reusable end-to-end orchestration;
+- process-local FastAPI demo backend;
 - offline retrieval evaluation.
 
 Next:
 
 - model-specific token budgeting;
 - end-to-end generated-answer evaluation;
-- API/application layer;
 - frontend.
 
 ## Development and testing
@@ -247,6 +249,29 @@ with CodebaseRAG.from_repository_url("https://github.com/OWNER/REPOSITORY.git") 
     print(result.answer)
     print(result.citation_ids)
 ```
+
+### Demo backend
+
+Start the Phase 3 FastAPI backend locally with:
+
+```shell
+uvicorn src.api.app:app --reload
+```
+
+It exposes only:
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/health` | Confirm the process is alive. |
+| `POST` | `/api/repositories` | Acquire and prepare a repository once. |
+| `POST` | `/api/repositories/{repository_id}/ask` | Ask the prepared repository a question. |
+| `DELETE` | `/api/repositories/{repository_id}` | Close and remove the repository session. |
+
+Repository IDs are opaque and sessions exist only in this Python process. Deleting a
+session calls `CodebaseRAG.close()`, and application shutdown closes every retained
+session. This demo intentionally has no database, cross-worker synchronization,
+authentication, background queue, or deployment layer. The direct Python API above
+remains supported and unchanged.
 
 Build or validate a persistent local index for a repository:
 

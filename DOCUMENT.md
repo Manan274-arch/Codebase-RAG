@@ -8,8 +8,9 @@ repository, it builds a structured code corpus, retrieves relevant code with dir
 linked context, and produces a citation-aware answer from that evidence.
 
 The current implementation includes provider-agnostic generation orchestration,
-deterministic citation validation, and a concrete hosted Groq backend. Generated-answer
-quality evaluation, an application/API layer, and a frontend are not yet implemented.
+deterministic citation validation, a concrete hosted Groq backend, and a process-local
+FastAPI demo backend. Generated-answer quality evaluation and a frontend are not yet
+implemented.
 
 ## 2. Current System Architecture
 
@@ -29,6 +30,7 @@ ranking, and deterministic context completion:
 - Context construction assigns stable evidence identities and query-local citation aliases.
 - Generation prompts an injected text backend and validates returned citation aliases.
 - The current concrete backend uses Groq-hosted `openai/gpt-oss-20b` inference.
+- The demo HTTP boundary retains prepared `CodebaseRAG` sessions in process memory.
 
 The corpus representation contains a deterministic structural summary followed by the
 original code. Exact source remains available in `metadata["raw_content"]`.
@@ -356,6 +358,32 @@ described missing quantities as ignored or zero, although `_complete_total` retu
 `None` if any grouped quantity is missing. This smoke test establishes end-to-end
 integration and citation enforcement, not formal answer-quality evaluation.
 
+### Phase 3 demo API
+
+`src/api/app.py` provides the deliberately small FastAPI boundary:
+
+- `GET /api/health`;
+- `POST /api/repositories`;
+- `POST /api/repositories/{repository_id}/ask`;
+- `DELETE /api/repositories/{repository_id}`.
+
+`RepositoryService` maps opaque UUIDs to already-prepared `CodebaseRAG` instances. A
+session-level lock prevents a question and cleanup from using the same Qdrant resource
+concurrently. Repository creation calls `CodebaseRAG.from_repository_url(...)` exactly
+once; later questions call the retained instance's `ask(...)` method without acquisition
+or indexing. DELETE invokes its public `close()` method, and the FastAPI lifespan closes
+all sessions during shutdown.
+
+The HTTP response projects the existing `CodebaseAnswer` and `EvidenceItem` fields into
+JSON: answer text, validated citation IDs, canonical evidence IDs, source paths, chunk
+indices, snippets, line bounds, and retrieval/relationship origin. It does not perform
+new retrieval or citation processing. Sessions are intentionally process-local and are
+not shared across workers or restored after restart. The direct Python orchestration API
+remains unchanged.
+
+Run locally with `uvicorn src.api.app:app --reload`. No database, Redis, workers,
+authentication, Docker, or deployment configuration belongs to this demo phase.
+
 ## 9. Evaluation Status
 
 Retrieval is covered by deterministic frozen fixtures and offline evaluation at multiple
@@ -384,13 +412,14 @@ Implemented through provider-agnostic citation-aware generation:
 - deterministic citation-aware context construction with optional character budgeting;
 - grounded prompt construction and deterministic generated-citation validation;
 - hosted Groq generation using `openai/gpt-oss-20b` by default;
+- automatic Git acquisition and reusable end-to-end orchestration;
+- process-local FastAPI demo backend;
 - offline retrieval evaluation and baseline experiments.
 
 Not yet implemented:
 
 - model-specific token budgeting for generation;
 - end-to-end generated-answer quality evaluation;
-- application/API layer;
 - frontend.
 
 The next project phase evaluates generated-answer quality over the deterministic
