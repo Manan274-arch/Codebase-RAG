@@ -11,6 +11,7 @@ requires-python = ">=3.11,<3.12"
 dependencies = [
     "langchain-core>=1.0,<2.0",
     "langchain-text-splitters>=1.0,<2.0",
+    "qdrant-client>=1.14,<2.0",
     "rank-bm25>=0.2.2,<0.3",
     "sentence-transformers>=5.6,<6.0",
     "tree-sitter-language-pack>=1.13,<2.0",
@@ -30,6 +31,8 @@ packages = [
     "src.generation",
     "src.indexing",
     "src.ingestion",
+    "src.evaluation",
+    "src.evaluation.runners",
     "src.retrieval",
 ]
 
@@ -45,6 +48,10 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/build_benchmark_v2_fixture.py" = ["E501"]
+"tests/fixtures/retrieval_eval_repo_v2/**" = ["E501", "I001"]
 
 [tool.mypy]
 python_version = "3.11"

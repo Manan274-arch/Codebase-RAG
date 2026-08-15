@@ -1,0 +1,897 @@
+[
+  {
+    "query_id": "lexical_01",
+    "query": "Where is `rotate_session` defined?",
+    "category": "lexical",
+    "split": "dev",
+    "relevance": {
+      "backend/app/services/auth_service.py::0": 2
+    }
+  },
+  {
+    "query_id": "lexical_02",
+    "query": "Which file defines `InventoryRepository`-style stock persistence through `decrement_available`?",
+    "category": "lexical",
+    "split": "dev",
+    "relevance": {
+      "backend/app/repositories/inventory_repository.py::0": 2
+    }
+  },
+  {
+    "query_id": "lexical_03",
+    "query": "Where is the `/health` route registered?",
+    "category": "lexical",
+    "split": "dev",
+    "relevance": {
+      "backend/app/routes/health.py::0": 2
+    }
+  },
+  {
+    "query_id": "lexical_04",
+    "query": "Find the `complete_checkout` implementation.",
+    "category": "lexical",
+    "split": "dev",
+    "relevance": {
+      "backend/app/services/checkout_service.py::0": 2
+    }
+  },
+  {
+    "query_id": "lexical_05",
+    "query": "Where is `requestCancellation` defined?",
+    "category": "lexical",
+    "split": "test",
+    "relevance": {
+      "frontend/src/api/orders.ts::0": 2
+    }
+  },
+  {
+    "query_id": "lexical_06",
+    "query": "Which module defines `record_authorization`?",
+    "category": "lexical",
+    "split": "test",
+    "relevance": {
+      "backend/app/repositories/payment_repository.py::0": 2
+    }
+  },
+  {
+    "query_id": "lexical_07",
+    "query": "Find the `approve_refund` service function.",
+    "category": "lexical",
+    "split": "test",
+    "relevance": {
+      "backend/app/services/refund_service.py::0": 2
+    }
+  },
+  {
+    "query_id": "lexical_08",
+    "query": "Where is `require_authenticated_user` implemented?",
+    "category": "lexical",
+    "split": "test",
+    "relevance": {
+      "backend/app/middleware/authentication.py::0": 2
+    }
+  },
+  {
+    "query_id": "lexical_09",
+    "query": "Which worker defines `retry_deferred_charge`?",
+    "category": "lexical",
+    "split": "test",
+    "relevance": {
+      "worker/jobs/payment_retry.py::0": 2
+    }
+  },
+  {
+    "query_id": "lexical_10",
+    "query": "Find the `buildOrderPreview` helper.",
+    "category": "lexical",
+    "split": "test",
+    "relevance": {
+      "frontend/src/utils/orderPreview.ts::0": 2
+    }
+  },
+  {
+    "query_id": "lexical_11",
+    "query": "Where is `queue_order_confirmation` defined?",
+    "category": "lexical",
+    "split": "test",
+    "relevance": {
+      "backend/app/services/notification_service.py::0": 2
+    }
+  },
+  {
+    "query_id": "lexical_12",
+    "query": "Which file contains `decode_refresh_token`?",
+    "category": "lexical",
+    "split": "test",
+    "relevance": {
+      "backend/app/utils/jwt_tokens.py::0": 2
+    }
+  },
+  {
+    "query_id": "lexical_13",
+    "query": "Where is `trackShipment` implemented?",
+    "category": "lexical",
+    "split": "test",
+    "relevance": {
+      "frontend/src/api/shipping.ts::0": 2
+    }
+  },
+  {
+    "query_id": "lexical_14",
+    "query": "Find the `mark_approved` repository function.",
+    "category": "lexical",
+    "split": "test",
+    "relevance": {
+      "backend/app/repositories/refund_repository.py::0": 2
+    }
+  },
+  {
+    "query_id": "lexical_15",
+    "query": "Where is `displayMoney` defined?",
+    "category": "lexical",
+    "split": "test",
+    "relevance": {
+      "frontend/src/utils/currency.ts::0": 2
+    }
+  },
+  {
+    "query_id": "lexical_16",
+    "query": "Which route handler is named `inventory_status`?",
+    "category": "lexical",
+    "split": "test",
+    "relevance": {
+      "backend/app/routes/inventory.py::0": 2
+    }
+  },
+  {
+    "query_id": "lexical_17",
+    "query": "Find `dispatch_confirmed_order`.",
+    "category": "lexical",
+    "split": "test",
+    "relevance": {
+      "worker/jobs/shipment_dispatch.py::0": 2
+    }
+  },
+  {
+    "query_id": "lexical_18",
+    "query": "Where is `claim_once` defined?",
+    "category": "lexical",
+    "split": "test",
+    "relevance": {
+      "backend/app/utils/idempotency.py::0": 2
+    }
+  },
+  {
+    "query_id": "semantic_01",
+    "query": "What code stops an expired login session from reaching protected work?",
+    "category": "semantic",
+    "split": "dev",
+    "relevance": {
+      "backend/app/middleware/authentication.py::0": 2,
+      "backend/app/utils/jwt_tokens.py::0": 1
+    }
+  },
+  {
+    "query_id": "semantic_02",
+    "query": "Where are bad email and password combinations rejected?",
+    "category": "semantic",
+    "split": "dev",
+    "relevance": {
+      "backend/app/services/auth_service.py::0": 2,
+      "backend/app/repositories/user_repository.py::0": 1
+    }
+  },
+  {
+    "query_id": "semantic_03",
+    "query": "What decides whether a customer can still cancel an order?",
+    "category": "semantic",
+    "split": "dev",
+    "relevance": {
+      "backend/app/services/order_service.py::0": 2
+    }
+  },
+  {
+    "query_id": "semantic_04",
+    "query": "Where is a temporary card-provider failure queued for another attempt?",
+    "category": "semantic",
+    "split": "dev",
+    "relevance": {
+      "backend/app/services/payment_gateway.py::0": 2,
+      "backend/app/repositories/payment_repository.py::0": 2,
+      "worker/jobs/payment_retry.py::0": 1
+    }
+  },
+  {
+    "query_id": "semantic_05",
+    "query": "What code prevents the same provider callback from being handled twice?",
+    "category": "semantic",
+    "split": "test",
+    "relevance": {
+      "backend/app/services/payment_gateway.py::0": 2,
+      "backend/app/repositories/payment_repository.py::0": 2
+    }
+  },
+  {
+    "query_id": "semantic_06",
+    "query": "Where is the amount charged after applying a coupon calculated?",
+    "category": "semantic",
+    "split": "test",
+    "relevance": {
+      "backend/app/services/discount_service.py::0": 2,
+      "backend/app/services/checkout_service.py::0": 2
+    }
+  },
+  {
+    "query_id": "semantic_07",
+    "query": "What reduces sellable stock when merchandise is held?",
+    "category": "semantic",
+    "split": "test",
+    "relevance": {
+      "backend/app/repositories/inventory_repository.py::0": 2,
+      "backend/app/services/inventory_service.py::0": 1
+    }
+  },
+  {
+    "query_id": "semantic_08",
+    "query": "Where is stock restored after a purchase is cancelled?",
+    "category": "semantic",
+    "split": "test",
+    "relevance": {
+      "backend/app/services/inventory_service.py::0": 2,
+      "backend/app/services/order_service.py::0": 1
+    }
+  },
+  {
+    "query_id": "semantic_09",
+    "query": "What writes a newly submitted purchase into durable application state?",
+    "category": "semantic",
+    "split": "test",
+    "relevance": {
+      "backend/app/repositories/order_repository.py::0": 2,
+      "backend/app/services/order_service.py::0": 1
+    }
+  },
+  {
+    "query_id": "semantic_10",
+    "query": "Where is sensitive profile input restricted to approved fields?",
+    "category": "semantic",
+    "split": "test",
+    "relevance": {
+      "backend/app/services/profile_service.py::0": 2
+    }
+  },
+  {
+    "query_id": "semantic_11",
+    "query": "What initiates delivery preparation after an order is confirmed?",
+    "category": "semantic",
+    "split": "test",
+    "relevance": {
+      "worker/jobs/shipment_dispatch.py::0": 2,
+      "backend/app/services/shipping_service.py::0": 2
+    }
+  },
+  {
+    "query_id": "semantic_12",
+    "query": "Where does an approved reimbursement return money to the original payment?",
+    "category": "semantic",
+    "split": "test",
+    "relevance": {
+      "backend/app/services/refund_service.py::0": 2,
+      "backend/app/repositories/payment_repository.py::0": 2
+    }
+  },
+  {
+    "query_id": "semantic_13",
+    "query": "What browser behavior restores a session without asking for a password again?",
+    "category": "semantic",
+    "split": "test",
+    "relevance": {
+      "frontend/src/hooks/useSession.ts::0": 2,
+      "frontend/src/api/auth.ts::0": 2
+    }
+  },
+  {
+    "query_id": "semantic_14",
+    "query": "Where does checkout combine pricing, payment, and order creation?",
+    "category": "semantic",
+    "split": "test",
+    "relevance": {
+      "backend/app/services/checkout_service.py::0": 2
+    }
+  },
+  {
+    "query_id": "semantic_15",
+    "query": "What code rejects reservation when there are too few units?",
+    "category": "semantic",
+    "split": "test",
+    "relevance": {
+      "backend/app/repositories/inventory_repository.py::0": 2
+    }
+  },
+  {
+    "query_id": "semantic_16",
+    "query": "Where are excessive requests from one client blocked?",
+    "category": "semantic",
+    "split": "test",
+    "relevance": {
+      "backend/app/middleware/rate_limit.py::0": 2
+    }
+  },
+  {
+    "query_id": "semantic_17",
+    "query": "What turns an order confirmation into asynchronous notification work?",
+    "category": "semantic",
+    "split": "test",
+    "relevance": {
+      "backend/app/services/notification_service.py::0": 2,
+      "worker/jobs/notification_delivery.py::0": 1
+    }
+  },
+  {
+    "query_id": "semantic_18",
+    "query": "Where does the UI format monetary values for display?",
+    "category": "semantic",
+    "split": "test",
+    "relevance": {
+      "frontend/src/utils/currency.ts::0": 2,
+      "backend/app/utils/money.py::0": 1
+    }
+  },
+  {
+    "query_id": "structural_01",
+    "query": "Which service owns the logic invoked by the order creation handler?",
+    "category": "structural",
+    "split": "dev",
+    "relevance": {
+      "backend/app/services/order_service.py::0": 2,
+      "backend/app/routes/orders.py::0": 1
+    }
+  },
+  {
+    "query_id": "structural_02",
+    "query": "Where is the handler for the endpoint returning the signed-in user's profile?",
+    "category": "structural",
+    "split": "dev",
+    "relevance": {
+      "backend/app/routes/profile.py::0": 2,
+      "backend/app/services/profile_service.py::0": 1
+    }
+  },
+  {
+    "query_id": "structural_03",
+    "query": "Which repository method actually persists inventory decrements?",
+    "category": "structural",
+    "split": "dev",
+    "relevance": {
+      "backend/app/repositories/inventory_repository.py::0": 2,
+      "backend/app/services/inventory_service.py::0": 1
+    }
+  },
+  {
+    "query_id": "structural_04",
+    "query": "What service is imported by the checkout route?",
+    "category": "structural",
+    "split": "dev",
+    "relevance": {
+      "backend/app/services/checkout_service.py::0": 2,
+      "backend/app/routes/checkout.py::0": 2
+    }
+  },
+  {
+    "query_id": "structural_05",
+    "query": "Which handler owns POST `/api/refunds`?",
+    "category": "structural",
+    "split": "test",
+    "relevance": {
+      "backend/app/routes/refunds.py::0": 2,
+      "backend/app/services/refund_service.py::0": 1
+    }
+  },
+  {
+    "query_id": "structural_06",
+    "query": "Where is the class used as the fake stock repository in tests?",
+    "category": "structural",
+    "split": "test",
+    "relevance": {
+      "backend/tests/inventory_fake.py::0": 2
+    }
+  },
+  {
+    "query_id": "structural_07",
+    "query": "Which route delegates token renewal to the authentication service?",
+    "category": "structural",
+    "split": "test",
+    "relevance": {
+      "backend/app/routes/auth.py::0": 2,
+      "backend/app/services/auth_service.py::0": 1
+    }
+  },
+  {
+    "query_id": "structural_08",
+    "query": "What repository owns shipment lookup by order ID?",
+    "category": "structural",
+    "split": "test",
+    "relevance": {
+      "backend/app/repositories/shipment_repository.py::0": 2,
+      "backend/app/services/shipping_service.py::0": 1
+    }
+  },
+  {
+    "query_id": "structural_09",
+    "query": "Which page imports and calls the checkout API wrapper?",
+    "category": "structural",
+    "split": "test",
+    "relevance": {
+      "frontend/src/pages/CheckoutPage.ts::0": 2,
+      "frontend/src/api/checkout.ts::0": 1
+    }
+  },
+  {
+    "query_id": "structural_10",
+    "query": "Where is the admin reimbursement endpoint handler defined?",
+    "category": "structural",
+    "split": "test",
+    "relevance": {
+      "backend/app/routes/admin.py::0": 2,
+      "backend/app/services/refund_service.py::0": 1
+    }
+  },
+  {
+    "query_id": "structural_11",
+    "query": "Which utility owns access-token decoding used by authentication middleware?",
+    "category": "structural",
+    "split": "test",
+    "relevance": {
+      "backend/app/utils/jwt_tokens.py::0": 2,
+      "backend/app/middleware/authentication.py::0": 1
+    }
+  },
+  {
+    "query_id": "structural_12",
+    "query": "Where is the frontend component that delegates credentials to `signIn`?",
+    "category": "structural",
+    "split": "test",
+    "relevance": {
+      "frontend/src/components/LoginForm.ts::0": 2,
+      "frontend/src/api/auth.ts::0": 1
+    }
+  },
+  {
+    "query_id": "structural_13",
+    "query": "Which service method is called by the shipping status route?",
+    "category": "structural",
+    "split": "test",
+    "relevance": {
+      "backend/app/services/shipping_service.py::0": 2,
+      "backend/app/routes/shipping.py::0": 1
+    }
+  },
+  {
+    "query_id": "structural_14",
+    "query": "Where is webhook state stored after the payment route accepts an event?",
+    "category": "structural",
+    "split": "test",
+    "relevance": {
+      "backend/app/repositories/payment_repository.py::0": 2,
+      "backend/app/routes/payments.py::0": 1
+    }
+  },
+  {
+    "query_id": "structural_15",
+    "query": "Which worker imports stock lookup for reconciliation?",
+    "category": "structural",
+    "split": "test",
+    "relevance": {
+      "worker/jobs/inventory_reconcile.py::0": 2,
+      "backend/app/repositories/inventory_repository.py::0": 1
+    }
+  },
+  {
+    "query_id": "structural_16",
+    "query": "Where is the repository definition responsible for changing order status?",
+    "category": "structural",
+    "split": "test",
+    "relevance": {
+      "backend/app/repositories/order_repository.py::0": 2
+    }
+  },
+  {
+    "query_id": "structural_17",
+    "query": "Which frontend hook owns refreshing product availability?",
+    "category": "structural",
+    "split": "test",
+    "relevance": {
+      "frontend/src/hooks/useInventory.ts::0": 2,
+      "frontend/src/api/inventory.ts::0": 1
+    }
+  },
+  {
+    "query_id": "structural_18",
+    "query": "Where is the backend function called by the profile PATCH handler?",
+    "category": "structural",
+    "split": "test",
+    "relevance": {
+      "backend/app/services/profile_service.py::0": 2,
+      "backend/app/routes/profile.py::0": 1
+    }
+  },
+  {
+    "query_id": "relationship_01",
+    "query": "Which backend handler receives the request sent when checkout is submitted?",
+    "category": "relationship",
+    "split": "dev",
+    "relevance": {
+      "frontend/src/api/checkout.ts::0": 2,
+      "backend/app/routes/checkout.py::0": 2
+    }
+  },
+  {
+    "query_id": "relationship_02",
+    "query": "What frontend code triggers the endpoint that cancels an order?",
+    "category": "relationship",
+    "split": "dev",
+    "relevance": {
+      "frontend/src/api/orders.ts::0": 2,
+      "backend/app/routes/orders.py::0": 2
+    }
+  },
+  {
+    "query_id": "relationship_03",
+    "query": "Where does the admin refund action eventually reach the backend?",
+    "category": "relationship",
+    "split": "dev",
+    "relevance": {
+      "frontend/src/api/admin.ts::0": 2,
+      "backend/app/routes/admin.py::0": 2,
+      "frontend/src/pages/AdminRefund.ts::0": 1
+    }
+  },
+  {
+    "query_id": "relationship_04",
+    "query": "Which backend route corresponds to the client call used to load an order?",
+    "category": "relationship",
+    "split": "dev",
+    "relevance": {
+      "frontend/src/api/orders.ts::0": 2,
+      "backend/app/routes/orders.py::0": 2
+    }
+  },
+  {
+    "query_id": "relationship_05",
+    "query": "What browser request reaches the login handler?",
+    "category": "relationship",
+    "split": "test",
+    "relevance": {
+      "frontend/src/api/auth.ts::0": 2,
+      "backend/app/routes/auth.py::0": 2,
+      "frontend/src/components/LoginForm.ts::0": 1
+    }
+  },
+  {
+    "query_id": "relationship_06",
+    "query": "Which server endpoint receives the profile save request?",
+    "category": "relationship",
+    "split": "test",
+    "relevance": {
+      "frontend/src/api/profile.ts::0": 2,
+      "backend/app/routes/profile.py::0": 2
+    }
+  },
+  {
+    "query_id": "relationship_07",
+    "query": "Connect the card authorization client call to its backend handler.",
+    "category": "relationship",
+    "split": "test",
+    "relevance": {
+      "frontend/src/api/payments.ts::0": 2,
+      "backend/app/routes/payments.py::0": 2
+    }
+  },
+  {
+    "query_id": "relationship_08",
+    "query": "Which frontend function calls the stock availability endpoint?",
+    "category": "relationship",
+    "split": "test",
+    "relevance": {
+      "frontend/src/api/inventory.ts::0": 2,
+      "backend/app/routes/inventory.py::0": 2,
+      "frontend/src/hooks/useInventory.ts::0": 1
+    }
+  },
+  {
+    "query_id": "relationship_09",
+    "query": "Where does the stock reservation HTTP call arrive in the backend?",
+    "category": "relationship",
+    "split": "test",
+    "relevance": {
+      "frontend/src/api/inventory.ts::0": 2,
+      "backend/app/routes/inventory.py::0": 2
+    }
+  },
+  {
+    "query_id": "relationship_10",
+    "query": "Which route handles the browser request for shipment progress?",
+    "category": "relationship",
+    "split": "test",
+    "relevance": {
+      "frontend/src/api/shipping.ts::0": 2,
+      "backend/app/routes/shipping.py::0": 2
+    }
+  },
+  {
+    "query_id": "relationship_11",
+    "query": "What client function invokes the customer refund request endpoint?",
+    "category": "relationship",
+    "split": "test",
+    "relevance": {
+      "frontend/src/api/refunds.ts::0": 2,
+      "backend/app/routes/refunds.py::0": 2
+    }
+  },
+  {
+    "query_id": "relationship_12",
+    "query": "Which backend code receives the order submission sent by the web client?",
+    "category": "relationship",
+    "split": "test",
+    "relevance": {
+      "frontend/src/api/orders.ts::0": 2,
+      "backend/app/routes/orders.py::0": 2
+    }
+  },
+  {
+    "query_id": "relationship_13",
+    "query": "How does the order history page reach the server for one order?",
+    "category": "relationship",
+    "split": "test",
+    "relevance": {
+      "frontend/src/pages/OrderHistory.ts::0": 2,
+      "frontend/src/api/orders.ts::0": 2,
+      "backend/app/routes/orders.py::0": 2
+    }
+  },
+  {
+    "query_id": "relationship_14",
+    "query": "Connect session renewal in the hook to the backend refresh endpoint.",
+    "category": "relationship",
+    "split": "test",
+    "relevance": {
+      "frontend/src/hooks/useSession.ts::0": 2,
+      "frontend/src/api/auth.ts::0": 2,
+      "backend/app/routes/auth.py::0": 2
+    }
+  },
+  {
+    "query_id": "relationship_15",
+    "query": "Which backend handler answers the UI's current-profile lookup?",
+    "category": "relationship",
+    "split": "test",
+    "relevance": {
+      "frontend/src/api/profile.ts::0": 2,
+      "backend/app/routes/profile.py::0": 2
+    }
+  },
+  {
+    "query_id": "relationship_16",
+    "query": "Where does `holdInventory` send its request?",
+    "category": "relationship",
+    "split": "test",
+    "relevance": {
+      "frontend/src/api/inventory.ts::0": 2,
+      "backend/app/routes/inventory.py::0": 2
+    }
+  },
+  {
+    "query_id": "relationship_17",
+    "query": "What server route is paired with `approveRefund`?",
+    "category": "relationship",
+    "split": "test",
+    "relevance": {
+      "frontend/src/api/admin.ts::0": 2,
+      "backend/app/routes/admin.py::0": 2
+    }
+  },
+  {
+    "query_id": "relationship_18",
+    "query": "Which browser helper and route cooperate to create an order?",
+    "category": "relationship",
+    "split": "test",
+    "relevance": {
+      "frontend/src/api/orders.ts::0": 2,
+      "backend/app/routes/orders.py::0": 2
+    }
+  },
+  {
+    "query_id": "hard_01",
+    "query": "Which function actually writes a newly created order rather than merely previewing or validating it?",
+    "category": "hard",
+    "split": "dev",
+    "relevance": {
+      "backend/app/repositories/order_repository.py::0": 2,
+      "backend/app/services/order_service.py::0": 1,
+      "frontend/src/utils/orderPreview.ts::0": 1
+    }
+  },
+  {
+    "query_id": "hard_02",
+    "query": "Where is stock truly reduced after checkout rather than faked for a test?",
+    "category": "hard",
+    "split": "dev",
+    "relevance": {
+      "backend/app/repositories/inventory_repository.py::0": 2,
+      "backend/app/services/inventory_service.py::0": 1,
+      "backend/tests/inventory_fake.py::0": 1
+    }
+  },
+  {
+    "query_id": "hard_03",
+    "query": "What determines the final charged amount instead of only formatting or previewing it?",
+    "category": "hard",
+    "split": "dev",
+    "relevance": {
+      "backend/app/services/discount_service.py::0": 2,
+      "backend/app/services/checkout_service.py::0": 2,
+      "backend/app/utils/money.py::0": 1,
+      "frontend/src/utils/currency.ts::0": 1
+    }
+  },
+  {
+    "query_id": "hard_04",
+    "query": "Where is authentication state validated for protected backend requests rather than created at login?",
+    "category": "hard",
+    "split": "dev",
+    "relevance": {
+      "backend/app/middleware/authentication.py::0": 2,
+      "backend/app/services/auth_service.py::0": 1,
+      "backend/tests/auth_stub.py::0": 1
+    }
+  },
+  {
+    "query_id": "hard_05",
+    "query": "What happens after a successful payment provider webhook is received?",
+    "category": "hard",
+    "split": "test",
+    "relevance": {
+      "backend/app/services/payment_gateway.py::0": 2,
+      "backend/app/repositories/payment_repository.py::0": 2,
+      "backend/app/routes/payments.py::0": 1
+    }
+  },
+  {
+    "query_id": "hard_06",
+    "query": "Which implementation records a real authorization rather than returning a mock approval?",
+    "category": "hard",
+    "split": "test",
+    "relevance": {
+      "backend/app/repositories/payment_repository.py::0": 2,
+      "backend/tests/payment_mock.py::0": 1,
+      "backend/app/services/payment_gateway.py::0": 1
+    }
+  },
+  {
+    "query_id": "hard_07",
+    "query": "Where is a cancellation persisted after eligibility is checked?",
+    "category": "hard",
+    "split": "test",
+    "relevance": {
+      "backend/app/repositories/order_repository.py::0": 2,
+      "backend/app/services/order_service.py::0": 1
+    }
+  },
+  {
+    "query_id": "hard_08",
+    "query": "Which code creates shipment state rather than simply reading tracking status?",
+    "category": "hard",
+    "split": "test",
+    "relevance": {
+      "backend/app/repositories/shipment_repository.py::0": 2,
+      "backend/app/services/shipping_service.py::0": 2,
+      "backend/app/routes/shipping.py::0": 1
+    }
+  },
+  {
+    "query_id": "hard_09",
+    "query": "Where does an admin approval become a payment reversal?",
+    "category": "hard",
+    "split": "test",
+    "relevance": {
+      "backend/app/services/refund_service.py::0": 2,
+      "backend/app/repositories/payment_repository.py::0": 2,
+      "backend/app/routes/admin.py::0": 1
+    }
+  },
+  {
+    "query_id": "hard_10",
+    "query": "What is the authoritative source of current inventory, not the UI hook or fake repository?",
+    "category": "hard",
+    "split": "test",
+    "relevance": {
+      "backend/app/repositories/inventory_repository.py::0": 2,
+      "frontend/src/hooks/useInventory.ts::0": 1,
+      "backend/tests/inventory_fake.py::0": 1
+    }
+  },
+  {
+    "query_id": "hard_11",
+    "query": "Where are user profile changes actually committed?",
+    "category": "hard",
+    "split": "test",
+    "relevance": {
+      "backend/app/repositories/user_repository.py::0": 2,
+      "backend/app/services/profile_service.py::0": 1,
+      "frontend/src/api/profile.ts::0": 1
+    }
+  },
+  {
+    "query_id": "hard_12",
+    "query": "Which code enforces payment retry exhaustion rather than initially marking a charge for retry?",
+    "category": "hard",
+    "split": "test",
+    "relevance": {
+      "worker/jobs/payment_retry.py::0": 2,
+      "backend/app/repositories/payment_repository.py::0": 1
+    }
+  },
+  {
+    "query_id": "hard_13",
+    "query": "Where does the order flow first reserve products and then persist the purchase?",
+    "category": "hard",
+    "split": "test",
+    "relevance": {
+      "backend/app/services/order_service.py::0": 2,
+      "backend/app/services/inventory_service.py::0": 1,
+      "backend/app/repositories/order_repository.py::0": 1
+    }
+  },
+  {
+    "query_id": "hard_14",
+    "query": "Which code is responsible for deduplicating callbacks, not idempotency keys in general?",
+    "category": "hard",
+    "split": "test",
+    "relevance": {
+      "backend/app/repositories/payment_repository.py::0": 2,
+      "backend/app/services/payment_gateway.py::0": 2,
+      "backend/app/utils/idempotency.py::0": 1
+    }
+  },
+  {
+    "query_id": "hard_15",
+    "query": "Where is a refund request stored before any administrator approves it?",
+    "category": "hard",
+    "split": "test",
+    "relevance": {
+      "backend/app/repositories/refund_repository.py::0": 2,
+      "backend/app/services/refund_service.py::0": 1
+    }
+  },
+  {
+    "query_id": "hard_16",
+    "query": "Which implementation checks actual credentials rather than returning a test identity?",
+    "category": "hard",
+    "split": "test",
+    "relevance": {
+      "backend/app/services/auth_service.py::0": 2,
+      "backend/app/repositories/user_repository.py::0": 2,
+      "backend/tests/auth_stub.py::0": 1
+    }
+  },
+  {
+    "query_id": "hard_17",
+    "query": "Where is the server-side money rounding behavior, as opposed to browser display formatting?",
+    "category": "hard",
+    "split": "test",
+    "relevance": {
+      "backend/app/utils/money.py::0": 2,
+      "frontend/src/utils/currency.ts::0": 1
+    }
+  },
+  {
+    "query_id": "hard_18",
+    "query": "What code releases reserved units when an order is no longer going ahead?",
+    "category": "hard",
+    "split": "test",
+    "relevance": {
+      "backend/app/services/inventory_service.py::0": 2,
+      "backend/app/services/order_service.py::0": 2
+    }
+  }
+]

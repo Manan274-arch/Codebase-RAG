@@ -1,4 +1,4 @@
-"""Rank-only Reciprocal Rank Fusion for BM25 and dense retrieval."""
+"""Rank-only Reciprocal Rank Fusion retained as an evaluated baseline."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -6,7 +6,7 @@ from typing import Protocol
 
 from langchain_core.documents import Document
 
-from src.retrieval.evaluation import RankedDocument, canonical_chunk_id
+from src.retrieval.contracts import RankedDocument, canonical_chunk_id
 
 DEFAULT_RRF_CONSTANT = 60
 DEFAULT_CANDIDATE_DEPTH = 50
@@ -106,12 +106,8 @@ class HybridRetriever:
         _validate_non_negative_integer(k, "k")
         if k == 0 or not query.strip():
             return []
-        bm25_results = self._bm25_retriever.retrieve(
-            query, k=self._candidate_depth
-        )
-        dense_results = self._dense_retriever.retrieve(
-            query, k=self._candidate_depth
-        )
+        bm25_results = self._bm25_retriever.retrieve(query, k=self._candidate_depth)
+        dense_results = self._dense_retriever.retrieve(query, k=self._candidate_depth)
         return reciprocal_rank_fusion(
             (bm25_results, dense_results),
             top_k=k,

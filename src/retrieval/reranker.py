@@ -1,31 +1,33 @@
-"""Local cross-encoder reranking over RRF candidate results."""
+"""Local cross-encoder reranking over a bounded candidate pool."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 import numpy as np
 import numpy.typing as npt
 from langchain_core.documents import Document
 
-from src.retrieval.hybrid import RRFSearchResult
-
 DEFAULT_CROSS_ENCODER_MODEL = "cross-encoder/ms-marco-MiniLM-L6-v2"
 DEFAULT_RERANK_CANDIDATE_DEPTH = 50
 
 
-class RRFCandidateRetriever(Protocol):
+class CandidateResult(Protocol):
+    """Minimum result interface expected by the reranker."""
+
+    document: Document
+
+
+class CandidateRetriever(Protocol):
     """First-stage interface expected by the reranker."""
 
-    def retrieve(self, query: str, k: int = 10) -> Sequence[RRFSearchResult]: ...
+    def retrieve(self, query: str, k: int = 10) -> Sequence[Any]: ...
 
 
 class PairScorer(Protocol):
     """Injectable boundary for batched query/document pair scoring."""
 
-    def score(
-        self, pairs: Sequence[tuple[str, str]]
-    ) -> npt.NDArray[np.float32]: ...
+    def score(self, pairs: Sequence[tuple[str, str]]) -> npt.NDArray[np.float32]: ...
 
 
 class RerankingError(ValueError):
@@ -38,16 +40,17 @@ class RerankedSearchResult:
 
     document: Document
     score: float
-    rrf_score: float
-    rrf_rank: int
+    first_stage_score: float | None
+    first_stage_rank: int
+    candidate_provenance: str | None = None
 
 
 class CrossEncoderReranker:
-    """Rerank only candidates produced by an RRF retriever."""
+    """Rerank only candidates produced by the supplied first-stage retriever."""
 
     def __init__(
         self,
-        candidate_retriever: RRFCandidateRetriever,
+        candidate_retriever: CandidateRetriever,
         *,
         scorer: PairScorer | None = None,
         model_name: str = DEFAULT_CROSS_ENCODER_MODEL,
@@ -61,7 +64,7 @@ class CrossEncoderReranker:
         self._candidate_depth = candidate_depth
 
     def retrieve(self, query: str, k: int = 10) -> list[RerankedSearchResult]:
-        """Score RRF candidates in one batch and return up to ``k`` results."""
+        """Score first-stage candidates in one batch and return up to ``k`` results."""
         _validate_non_negative_integer(k, "k")
         if k == 0 or not query.strip():
             return []
@@ -88,11 +91,22 @@ class CrossEncoderReranker:
             RerankedSearchResult(
                 document=candidate.document,
                 score=float(score),
-                rrf_score=candidate.score,
-                rrf_rank=original_index + 1,
+                first_stage_score=_candidate_score(candidate),
+                first_stage_rank=original_index + 1,
+                candidate_provenance=_candidate_provenance(candidate),
             )
             for original_index, (candidate, score) in ranked[:k]
         ]
+
+
+def _candidate_score(candidate: CandidateResult) -> float | None:
+    score = getattr(candidate, "score", None)
+    return float(score) if isinstance(score, (int, float)) else None
+
+
+def _candidate_provenance(candidate: CandidateResult) -> str | None:
+    provenance = getattr(candidate, "provenance", None)
+    return provenance if isinstance(provenance, str) else None
 
 
 class SentenceTransformerCrossEncoder:
@@ -103,9 +117,7 @@ class SentenceTransformerCrossEncoder:
 
         self._model = CrossEncoder(model_name)
 
-    def score(
-        self, pairs: Sequence[tuple[str, str]]
-    ) -> npt.NDArray[np.float32]:
+    def score(self, pairs: Sequence[tuple[str, str]]) -> npt.NDArray[np.float32]:
         scores = self._model.predict(
             list(pairs),
             batch_size=32,

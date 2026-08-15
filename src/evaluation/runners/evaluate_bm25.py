@@ -5,13 +5,13 @@ from pathlib import Path  # noqa: I001
 from src.retrieval import _torch_only  # noqa: F401
 from src.ingestion.pipeline import build_enriched_corpus
 from src.retrieval.bm25 import BM25Retriever
-from src.retrieval.evaluation import (
+from src.evaluation.metrics import (
     RetrievalEvaluationResult,
     evaluate_retriever,
     load_evaluation_examples,
 )
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_FIXTURE_REPOSITORY = (
     _PROJECT_ROOT / "tests" / "fixtures" / "retrieval_eval_repo"
 )

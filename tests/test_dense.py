@@ -4,8 +4,8 @@ import numpy as np
 import numpy.typing as npt
 import pytest
 from langchain_core.documents import Document
-from src.retrieval.dense import DenseRetrievalError, DenseRetriever
-from src.retrieval.evaluation import RetrievalEvaluationExample, evaluate_retriever
+from src.evaluation.brute_force_dense import DenseRetrievalError, DenseRetriever
+from src.evaluation.metrics import RetrievalEvaluationExample, evaluate_retriever
 
 
 class FakeEncoder:

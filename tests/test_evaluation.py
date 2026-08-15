@@ -4,14 +4,14 @@ from pathlib import Path
 
 import pytest
 from langchain_core.documents import Document
-from src.retrieval.evaluate_bm25 import run_benchmark
-from src.retrieval.evaluation import (
+from src.evaluation.metrics import (
     RetrievalEvaluationError,
     RetrievalEvaluationExample,
     canonical_chunk_id,
     evaluate_retriever,
     load_evaluation_examples,
 )
+from src.evaluation.runners.evaluate_bm25 import run_benchmark
 
 
 def chunk(source: str, chunk_index: int) -> Document:

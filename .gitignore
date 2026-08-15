@@ -17,6 +17,9 @@ env/
 .coverage
 htmlcov/
 
+# Local persistent vector index
+.qdrant/
+
 # Environment files
 .env
 .env.*
@@ -32,4 +35,3 @@ htmlcov/
 .DS_Store
 Thumbs.db
 Desktop.ini
-

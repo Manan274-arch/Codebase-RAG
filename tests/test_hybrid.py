@@ -4,19 +4,18 @@ import numpy as np
 import numpy.typing as npt
 import pytest
 from langchain_core.documents import Document
-from src.retrieval.bm25 import BM25Retriever, BM25SearchResult
-from src.retrieval.dense import DenseRetriever, DenseSearchResult
-from src.retrieval.evaluation import (
-    RetrievalEvaluationError,
+from src.evaluation.brute_force_dense import DenseRetriever, DenseSearchResult
+from src.evaluation.metrics import (
     RetrievalEvaluationExample,
     canonical_chunk_id,
     evaluate_retriever,
 )
-from src.retrieval.hybrid import (
+from src.evaluation.rrf import (
     DEFAULT_RRF_CONSTANT,
     HybridRetriever,
     reciprocal_rank_fusion,
 )
+from src.retrieval.bm25 import BM25Retriever, BM25SearchResult
 
 
 def document(content: str, source: str, chunk_index: int) -> Document:
@@ -149,7 +148,7 @@ def test_top_k_empty_lists_and_invalid_arguments() -> None:
 def test_malformed_canonical_identity_fails_consistently() -> None:
     malformed = Document(page_content="code", metadata={"source": "a.py"})
 
-    with pytest.raises(RetrievalEvaluationError, match="chunk_index"):
+    with pytest.raises(ValueError, match="chunk_index"):
         reciprocal_rank_fusion(([result(malformed, 1.0)],))
 
 

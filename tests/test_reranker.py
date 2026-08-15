@@ -4,12 +4,12 @@ import numpy as np
 import numpy.typing as npt
 import pytest
 from langchain_core.documents import Document
-from src.retrieval.evaluation import (
+from src.evaluation.metrics import (
     RetrievalEvaluationExample,
     canonical_chunk_id,
     evaluate_retriever,
 )
-from src.retrieval.hybrid import RRFSearchResult
+from src.evaluation.rrf import RRFSearchResult
 from src.retrieval.reranker import (
     DEFAULT_CROSS_ENCODER_MODEL,
     CrossEncoderReranker,
@@ -66,8 +66,8 @@ def test_fake_cross_encoder_reranks_rrf_candidates() -> None:
 
     assert [item.document.metadata["marker"] for item in results] == ["B", "C", "A"]
     assert [item.score for item in results] == pytest.approx([0.9, 0.5, 0.2])
-    assert [item.rrf_rank for item in results] == [2, 3, 1]
-    assert results[0].rrf_score == first_stage.candidates[1].score
+    assert [item.first_stage_rank for item in results] == [2, 3, 1]
+    assert results[0].first_stage_score == first_stage.candidates[1].score
 
 
 def test_scorer_receives_enriched_page_content_not_raw_content() -> None:

@@ -4,6 +4,8 @@ from pathlib import Path
 import numpy as np
 import numpy.typing as npt
 from langchain_core.documents import Document
+from src.evaluation.brute_force_dense import DenseRetriever
+from src.evaluation.rrf import HybridRetriever
 from src.ingestion.pipeline import build_enriched_corpus
 from src.ingestion.representation import (
     RAW_CONTENT_METADATA_KEY,
@@ -11,9 +13,7 @@ from src.ingestion.representation import (
     render_retrieval_content,
 )
 from src.retrieval.bm25 import BM25Retriever
-from src.retrieval.dense import DenseRetriever
-from src.retrieval.evaluation import canonical_chunk_id
-from src.retrieval.hybrid import HybridRetriever
+from src.retrieval.contracts import canonical_chunk_id
 
 
 class FakeEncoder:
@@ -140,9 +140,10 @@ def test_rendering_is_deterministic_and_repeated_enrichment_is_idempotent() -> N
     second = enrich_retrieval_content(first)
 
     assert first.page_content == second.page_content
-    assert first.metadata[RAW_CONTENT_METADATA_KEY] == second.metadata[
-        RAW_CONTENT_METADATA_KEY
-    ]
+    assert (
+        first.metadata[RAW_CONTENT_METADATA_KEY]
+        == second.metadata[RAW_CONTENT_METADATA_KEY]
+    )
     assert second.page_content.count("Definitions:") == 1
     assert second.page_content.count("Code:") == 1
 
@@ -202,7 +203,7 @@ def test_real_multilanguage_pipeline_renders_and_preserves_links(
         encoding="utf-8",
     )
     (tmp_path / "Health.java").write_text(
-        "class Health { public String status() { return \"ready\"; } }\n",
+        'class Health { public String status() { return "ready"; } }\n',
         encoding="utf-8",
     )
 

@@ -3,18 +3,18 @@
 from src.retrieval import _torch_only  # noqa: F401, I001
 from src.ingestion.pipeline import build_enriched_corpus
 from src.retrieval.bm25 import BM25Retriever
-from src.retrieval.dense import DenseRetriever
-from src.retrieval.evaluate_bm25 import (
+from src.evaluation.brute_force_dense import DenseRetriever
+from src.evaluation.runners.evaluate_bm25 import (
     DEFAULT_BENCHMARK,
     DEFAULT_FIXTURE_REPOSITORY,
     format_report,
 )
-from src.retrieval.evaluation import (
+from src.evaluation.metrics import (
     RetrievalEvaluationResult,
     evaluate_retriever,
     load_evaluation_examples,
 )
-from src.retrieval.hybrid import HybridRetriever
+from src.evaluation.rrf import HybridRetriever
 
 
 def run_comparison() -> tuple[

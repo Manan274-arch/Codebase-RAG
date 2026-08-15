@@ -1,22 +1,16 @@
-"""Local raw-source code-aware dense retrieval."""
+"""Exact in-memory dense reference retained for migration evaluation."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Protocol, cast
 
 import numpy as np
-import numpy.typing as npt
 from langchain_core.documents import Document
 
-DEFAULT_DENSE_MODEL = "jinaai/jina-embeddings-v2-base-code"
-
-
-class EmbeddingBackend(Protocol):
-    """Injectable normalized text-embedding boundary."""
-
-    def encode(
-        self, texts: Sequence[str], *, normalize_embeddings: bool
-    ) -> npt.NDArray[np.float32]: ...
+from src.indexing.embeddings import (
+    EmbeddingBackend,
+    SentenceTransformerBackend,
+    normalized_matrix,
+)
 
 
 class DenseRetrievalError(ValueError):
@@ -47,9 +41,12 @@ class DenseRetriever:
                 [document.page_content for document in self._documents],
                 normalize_embeddings=True,
             )
-            self._corpus_embeddings = _normalized_matrix(
-                raw_embeddings, expected_rows=len(self._documents)
-            )
+            try:
+                self._corpus_embeddings = normalized_matrix(
+                    raw_embeddings, expected_rows=len(self._documents)
+                )
+            except ValueError as error:
+                raise DenseRetrievalError(str(error)) from error
         else:
             self._corpus_embeddings = np.empty((0, 0), dtype=np.float32)
 
@@ -61,7 +58,10 @@ class DenseRetriever:
             return []
 
         raw_query = self._encoder.encode([query], normalize_embeddings=True)
-        query_embedding = _normalized_matrix(raw_query, expected_rows=1)
+        try:
+            query_embedding = normalized_matrix(raw_query, expected_rows=1)
+        except ValueError as error:
+            raise DenseRetrievalError(str(error)) from error
         if query_embedding.shape[1] != self._corpus_embeddings.shape[1]:
             raise DenseRetrievalError(
                 "query and corpus embedding dimensions must match"
@@ -78,37 +78,3 @@ class DenseRetriever:
             )
             for index, score in ranked[: min(k, len(self._documents))]
         ]
-
-
-class SentenceTransformerBackend:
-    """Local Sentence Transformers adapter for the selected code model."""
-
-    def __init__(self, model_name: str = DEFAULT_DENSE_MODEL) -> None:
-        from sentence_transformers import SentenceTransformer
-
-        self._model = SentenceTransformer(model_name, trust_remote_code=True)
-
-    def encode(
-        self, texts: Sequence[str], *, normalize_embeddings: bool
-    ) -> npt.NDArray[np.float32]:
-        embeddings = self._model.encode(
-            list(texts),
-            convert_to_numpy=True,
-            normalize_embeddings=normalize_embeddings,
-            show_progress_bar=False,
-        )
-        return np.asarray(embeddings, dtype=np.float32)
-
-
-def _normalized_matrix(
-    embeddings: npt.ArrayLike, *, expected_rows: int
-) -> npt.NDArray[np.float32]:
-    matrix = np.asarray(embeddings, dtype=np.float32)
-    if matrix.ndim != 2 or matrix.shape[0] != expected_rows or matrix.shape[1] == 0:
-        raise DenseRetrievalError(
-            f"encoder must return shape ({expected_rows}, embedding_dimension)"
-        )
-    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
-    if np.any(norms == 0):
-        raise DenseRetrievalError("encoder returned a zero-length embedding")
-    return cast(npt.NDArray[np.float32], matrix / norms)
