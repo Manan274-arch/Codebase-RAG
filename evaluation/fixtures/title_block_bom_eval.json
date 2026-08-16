@@ -1,0 +1,259 @@
+{
+  "version": "title-block-bom-e2e-v1",
+  "repository_url": "https://github.com/Manan274-arch/Title-block-and-BOM-extraction-for-deciding-raw-materials.git",
+  "expected_commit_sha": "de4a29e4d453d0695b1a2cf5d76f8285032bea70",
+  "questions": [
+    {
+      "id": "simple-01",
+      "question": "Where is the main drawing-processing pipeline defined, and what public method runs it?",
+      "category": "simple",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_answer_points": [
+        "DrawingPipeline is defined in src/pipeline.py.",
+        "DrawingPipeline.run is the public method that processes one PDF."
+      ],
+      "expected_supporting_files": ["src/pipeline.py"],
+      "expected_symbols": ["DrawingPipeline", "DrawingPipeline.run"]
+    },
+    {
+      "id": "simple-02",
+      "question": "Which function changes the JSON and CSV output directories beneath a caller-supplied base directory?",
+      "category": "simple",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_answer_points": [
+        "ApplicationConfig.with_output_directory performs the change.",
+        "It returns a replaced immutable config with <base>/json and <base>/csv paths."
+      ],
+      "expected_supporting_files": ["src/config.py"],
+      "expected_symbols": ["ApplicationConfig.with_output_directory"]
+    },
+    {
+      "id": "simple-03",
+      "question": "Where are the command-line exit codes for rejected drawings and export failures selected?",
+      "category": "simple",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_answer_points": [
+        "main.py selects the process exit codes in main().",
+        "Rejected drawings return 2, unsuccessful exports return 3, and other completed runs return 0."
+      ],
+      "expected_supporting_files": ["main.py"],
+      "expected_symbols": ["main"]
+    },
+    {
+      "id": "simple-04",
+      "question": "Which helper sanitizes an uploaded filename and enforces a PDF suffix?",
+      "category": "simple",
+      "difficulty": "easy",
+      "answerable": true,
+      "expected_answer_points": [
+        "app._safe_pdf_name performs upload filename sanitization.",
+        "It strips path components, requires a case-insensitive .pdf suffix, replaces unsafe stem characters, and rejects an unusable stem."
+      ],
+      "expected_supporting_files": ["app.py"],
+      "expected_symbols": ["_safe_pdf_name"]
+    },
+    {
+      "id": "single-01",
+      "question": "How does PdfValidator distinguish ordinary invalid inputs from unexpected failures, and what conditions cause a likely-scanned rejection?",
+      "category": "single-file",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_answer_points": [
+        "Expected invalid cases are returned as PdfValidationResult.rejected with a machine-readable PdfRejectionCode rather than raised.",
+        "PyMuPDF file errors become INVALID_PDF and unexpected exceptions become VALIDATION_ERROR.",
+        "A page is considered likely scanned only when it is both below minimum text density and at or above maximum image coverage."
+      ],
+      "expected_supporting_files": ["src/pdf_validator.py"],
+      "expected_symbols": ["PdfValidator.validate", "PdfValidator._evaluate_page", "PdfValidationResult"]
+    },
+    {
+      "id": "single-02",
+      "question": "How does BOMExtractor find a BOM header and decide whether a candidate table row is valid?",
+      "category": "single-file",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_answer_points": [
+        "It normalizes label tokens, finds aligned header-label clusters, and requires item number plus quantity plus at least one descriptive field.",
+        "It chooses the strongest valid cluster and derives columns from ordered header centers.",
+        "Rows are grouped geometrically, assigned to columns, required to match the item-number pattern, and rejected when a present quantity is not numeric."
+      ],
+      "expected_supporting_files": ["src/bom_extractor.py"],
+      "expected_symbols": ["BOMExtractor._find_header", "BOMExtractor.extract", "_is_bom_header"]
+    },
+    {
+      "id": "single-03",
+      "question": "How does TitleBlockExtractor limit its search region and choose labeled values before using fallbacks?",
+      "category": "single-file",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_answer_points": [
+        "It restricts candidate words to a configured lower-page title-block region.",
+        "It finds normalized label matches and scores nearby candidates using geometry and field validation.",
+        "Conservative regex fallbacks are applied only for fields still missing after labeled extraction."
+      ],
+      "expected_supporting_files": ["src/title_block_extractor.py"],
+      "expected_symbols": ["TitleBlockExtractor.extract", "_title_block_words", "_best_candidate", "_apply_conservative_fallbacks"]
+    },
+    {
+      "id": "single-04",
+      "question": "How does MaterialAggregator choose between BOM data and the title block, normalize materials, and handle incomplete quantities?",
+      "category": "single-file",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_answer_points": [
+        "When any BOM rows exist it always aggregates BOM rows; only an empty BOM can fall back to a concrete usable title-block material.",
+        "Material values are uppercased, punctuation/whitespace normalized, aliases applied, and BOM-reference or ignored values excluded.",
+        "Equivalent materials are grouped with one-based source row positions.",
+        "A total is returned only if every contributing quantity parses successfully; otherwise the group quantity is None."
+      ],
+      "expected_supporting_files": ["src/material_aggregator.py"],
+      "expected_symbols": ["MaterialAggregator.aggregate", "MaterialAggregator._aggregate_bom", "_complete_total"]
+    },
+    {
+      "id": "single-05",
+      "question": "How does OutputExporter create JSON and CSV without leaving a partially written target file?",
+      "category": "single-file",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_answer_points": [
+        "It derives canonical JSON from DrawingResult and derives CSV from that JSON-compatible payload.",
+        "It creates destination directories and converts directory/write failures into OutputExportResult.failed.",
+        "Each target is written to a temporary file in the destination directory, flushed and fsynced, then atomically replaced with os.replace."
+      ],
+      "expected_supporting_files": ["src/output_exporter.py"],
+      "expected_symbols": ["OutputExporter.export", "_raw_material_csv", "_atomic_write_text"]
+    },
+    {
+      "id": "cross-01",
+      "question": "What stages does DrawingPipeline.run execute, where can it stop early, and does an export failure change the extraction status?",
+      "category": "cross-file",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_answer_points": [
+        "The pipeline validates the PDF, extracts layout, extracts title block and BOM, aggregates materials, builds DrawingResult, and optionally exports.",
+        "Failed PDF validation or failed/missing layout stops extraction early with a rejected DrawingResult.",
+        "Unexpected deterministic extraction exceptions are converted to a rejected result.",
+        "_finish returns the drawing plus export outcome; an export failure does not rewrite DrawingResult.status."
+      ],
+      "expected_supporting_files": ["src/pipeline.py", "src/output_exporter.py"],
+      "expected_symbols": ["DrawingPipeline.run", "DrawingPipeline._finish", "OutputExportResult"]
+    },
+    {
+      "id": "cross-02",
+      "question": "How does the central application configuration reach each configurable pipeline stage, and which stage is intentionally constructed without a config object?",
+      "category": "cross-file",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_answer_points": [
+        "ApplicationConfig groups validator, title block, BOM, materials, and output configuration objects.",
+        "DrawingPipeline.from_config passes those objects into the matching component constructors.",
+        "LayoutExtractor is not configured through ApplicationConfig and is left to DrawingPipeline's default construction."
+      ],
+      "expected_supporting_files": ["src/config.py", "src/pipeline.py"],
+      "expected_symbols": ["ApplicationConfig", "DrawingPipeline.from_config", "LayoutExtractor"]
+    },
+    {
+      "id": "cross-03",
+      "question": "Trace a Streamlit upload from the browser bytes through the drawing pipeline to the downloadable JSON and CSV bytes.",
+      "category": "cross-file",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_answer_points": [
+        "process_upload sanitizes the name, creates a TemporaryDirectory, and writes the uploaded bytes to a temporary PDF.",
+        "It redirects ApplicationConfig output beneath the temporary root and runs DrawingPipeline.",
+        "On successful export it reads the generated JSON and CSV into memory before the temporary directory is removed.",
+        "The returned ProcessedUpload is rendered through Streamlit download buttons."
+      ],
+      "expected_supporting_files": ["app.py", "src/config.py", "src/pipeline.py"],
+      "expected_symbols": ["process_upload", "ProcessedUpload", "ApplicationConfig.with_output_directory", "DrawingPipeline.run"]
+    },
+    {
+      "id": "cross-04",
+      "question": "How does the CLI's --output-directory option alter output paths, and how does the CLI distinguish extraction rejection from output-writing failure?",
+      "category": "cross-file",
+      "difficulty": "medium",
+      "answerable": true,
+      "expected_answer_points": [
+        "main._pipeline_for_output_directory calls ApplicationConfig.with_output_directory and constructs DrawingPipeline from that config.",
+        "The config changes output paths to the supplied base directory's json and csv children.",
+        "DrawingStatus.REJECTED produces exit code 2, while an unsuccessful non-null export outcome produces exit code 3."
+      ],
+      "expected_supporting_files": ["main.py", "src/config.py"],
+      "expected_symbols": ["_pipeline_for_output_directory", "ApplicationConfig.with_output_directory", "main"]
+    },
+    {
+      "id": "cross-05",
+      "question": "How is source provenance carried from PDF layout words into extracted title-block and BOM fields?",
+      "category": "cross-file",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_answer_points": [
+        "LayoutExtractor produces LayoutWord objects with page number, text, bounding box, and stable block/line/word positions.",
+        "Both extractors combine the bounding boxes of matched words and create ExtractedField values with MATCHED status and a Citation containing page and bbox.",
+        "Missing cells/fields have MISSING status and no citation."
+      ],
+      "expected_supporting_files": ["src/layout_extractor.py", "src/title_block_extractor.py", "src/bom_extractor.py", "src/schemas.py"],
+      "expected_symbols": ["LayoutWord", "ExtractedField", "Citation", "_matched_field", "_field_from_words"]
+    },
+    {
+      "id": "architecture-01",
+      "question": "Describe the system's end-to-end data flow from an input PDF to the canonical result and optional output files, including the responsibility of each major stage.",
+      "category": "architecture",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_answer_points": [
+        "PdfValidator gates unsupported inputs without doing extraction.",
+        "LayoutExtractor converts the accepted page into reusable words, text blocks, vector drawings, images, and page geometry.",
+        "TitleBlockExtractor and BOMExtractor interpret that shared layout independently.",
+        "MaterialAggregator produces the raw-material summary and DrawingPipeline creates the canonical DrawingResult/status.",
+        "OutputExporter optionally writes canonical JSON and a derived material CSV."
+      ],
+      "expected_supporting_files": ["src/pipeline.py", "src/pdf_validator.py", "src/layout_extractor.py", "src/material_aggregator.py", "src/output_exporter.py"],
+      "expected_symbols": ["DrawingPipeline", "PdfValidator", "LayoutExtractor", "MaterialAggregator", "OutputExporter"]
+    },
+    {
+      "id": "architecture-02",
+      "question": "What design boundaries keep PDF acceptance, layout measurement, engineering-field extraction, and persistence separate?",
+      "category": "architecture",
+      "difficulty": "hard",
+      "answerable": true,
+      "expected_answer_points": [
+        "PdfValidator only decides whether input is acceptable and reports measurements/rejection reasons.",
+        "LayoutExtractor records PDF geometry and content without interpreting engineering fields.",
+        "TitleBlockExtractor and BOMExtractor consume the layout without reopening the PDF.",
+        "OutputExporter persists an already-built DrawingResult and does not change extraction semantics."
+      ],
+      "expected_supporting_files": ["src/pdf_validator.py", "src/layout_extractor.py", "src/title_block_extractor.py", "src/bom_extractor.py", "src/output_exporter.py"],
+      "expected_symbols": ["PdfValidator", "LayoutExtractor", "TitleBlockExtractor", "BOMExtractor", "OutputExporter"]
+    },
+    {
+      "id": "unanswerable-01",
+      "question": "How does the application upload exported drawing results to Amazon S3, and which retry policy does it use?",
+      "category": "unanswerable",
+      "difficulty": "medium",
+      "answerable": false,
+      "expected_answer_points": [
+        "The repository contains no Amazon S3 upload implementation or cloud retry policy.",
+        "OutputExporter writes JSON and CSV to local filesystem paths only."
+      ],
+      "expected_supporting_files": ["src/output_exporter.py"],
+      "expected_symbols": ["OutputExporter.export"]
+    },
+    {
+      "id": "unanswerable-02",
+      "question": "Which OCR neural network preprocesses scanned drawings, and how is that model configured?",
+      "category": "unanswerable",
+      "difficulty": "medium",
+      "answerable": false,
+      "expected_answer_points": [
+        "There is no OCR model or scanned-drawing preprocessing implementation.",
+        "The validator rejects likely scanned or textless PDFs instead of applying OCR."
+      ],
+      "expected_supporting_files": ["src/pdf_validator.py"],
+      "expected_symbols": ["PdfValidator._evaluate_page"]
+    }
+  ]
+}

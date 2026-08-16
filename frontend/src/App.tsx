@@ -232,8 +232,8 @@ function AnswerPanel({ result }: { result: AskResponse }) {
       <div className="answer-copy">{result.answer}</div>
 
       <div className="evidence-heading">
-        <h3>Validated evidence</h3>
-        <p>Expand each citation to inspect the retrieved source snippet.</p>
+        <h3>Sources / Supporting Code</h3>
+        <p>Each snippet is the actual repository chunk behind a validated citation.</p>
       </div>
       <div className="evidence-list">
         {result.citations.map((citation, index) => (

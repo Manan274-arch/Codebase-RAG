@@ -87,8 +87,10 @@ describe("Codebase RAG demo", () => {
     await user.click(screen.getByRole("button", { name: "Ask" }));
 
     expect(await screen.findByText(answer.answer)).toBeInTheDocument();
+    expect(screen.getByText("Sources / Supporting Code")).toBeInTheDocument();
     expect(screen.getByText("C1")).toBeInTheDocument();
     expect(screen.getByText("src/auth.py")).toBeInTheDocument();
+    expect(screen.getByText(/Lines 10/)).toBeInTheDocument();
     expect(screen.getByText(/def authenticate\(token: str\)/)).toBeInTheDocument();
   });
 
