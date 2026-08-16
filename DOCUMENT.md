@@ -432,6 +432,30 @@ retrieval architecture is frozen.
 
 Focused retrieval tests, the full test suite, Ruff, and strict mypy currently pass.
 
+### Unseen-repository generated-answer evaluation
+
+`evaluation/end_to_end.py` compares the frozen production retrieval composition with
+an evaluation-only dense baseline. Both arms share one immutable checkout, enriched
+corpus, embedding model, exact Qdrant collection, context builder, Groq model,
+temperature, and 1,024-token answer limit. The baseline is exact dense top-10 directly
+to context; it does not use BM25, candidate union, reranking, or relationship expansion.
+Ground truth is loaded only by a separate post-generation structured judge and never
+enters either answer prompt.
+
+The `title-block-bom-e2e-v1` dataset fixes 18 manually inspected questions against
+commit `de4a29e4d453d0695b1a2cf5d76f8285032bea70`. Deterministic file overlap supplies
+citation precision/recall, while a saved rubric judge record supplies correctness,
+groundedness, supporting-code accuracy, hallucination, unanswerable handling, and likely
+failure stage. Full answers, citations, displayed snippets, retrieval/context IDs,
+latencies, judge inputs, and raw judge outputs remain auditable in the result artifact.
+
+Final RAG measured higher citation precision (64.0% versus 58.3%), citation recall
+(64.1% versus 48.0%), and groundedness (87.5% versus 86.1%). Dense-only measured
+slightly higher answer correctness (90.3% versus 88.9%), supporting-code accuracy
+(88.9% versus 87.5%), and strict overall success (38.9% versus 33.3%). The strongest
+production gain was cross-file citation recall (66.7% versus 36.7%); this evaluation
+therefore supports improved evidence completeness, not a blanket quality-win claim.
+
 ## 10. Current Project Boundary / Next Stage
 
 Implemented through provider-agnostic citation-aware generation:

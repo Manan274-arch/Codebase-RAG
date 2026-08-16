@@ -303,6 +303,10 @@ expand the evidence cards to inspect source snippets and line information. Chang
 repositories releases the previous backend session. Browser state is intentionally not
 persisted across refreshes.
 
+Each cited source card is populated directly from the validated `EvidenceItem`: it
+shows the repository-relative path, available source-line range, and the actual cited
+chunk text. Groq does not reconstruct or generate the displayed supporting code.
+
 Frontend quality checks run from `frontend/`:
 
 ```shell
@@ -339,5 +343,33 @@ mypy
 Additional historical evaluation entry points remain available under
 `evaluation/runners/`. They reproduce evaluated baselines and do not define the
 production retrieval architecture.
+
+### Unseen-repository end-to-end comparison
+
+The frozen `title-block-bom-e2e-v1` evaluation contains 18 questions at commit
+`de4a29e4d453d0695b1a2cf5d76f8285032bea70`: 4 simple, 5 single-file, 5
+cross-file, 2 architecture, and 2 unanswerable. It compares the unchanged production
+pipeline with exact dense top-10 followed directly by the same context construction
+and Groq answer settings.
+
+Measured results are stored under
+`evaluation/results/title_block_bom_de4a29e4/`. Final RAG improved citation precision
+from 58.3% to 64.0%, citation recall from 48.0% to 64.1%, and groundedness from 86.1%
+to 87.5%. It did not win every metric: answer correctness was 88.9% versus 90.3%,
+supporting-code accuracy was 87.5% versus 88.9%, and the deliberately strict overall
+success rate was 33.3% versus 38.9%. Cross-file citation recall improved from 36.7% to
+66.7%, while cross-file overall success fell from 40.0% to 20.0% because several
+otherwise-correct answers missed the exact citation precision/recall thresholds.
+
+Run the saved benchmark with:
+
+```shell
+python -m evaluation.runners.evaluate_end_to_end --repo https://github.com/Manan274-arch/Title-block-and-BOM-extraction-for-deciding-raw-materials.git --commit de4a29e4d453d0695b1a2cf5d76f8285032bea70 --output evaluation/results/title_block_bom_de4a29e4
+```
+
+For another public Git repository, first curate the same JSON schema with its pinned
+commit and pass it with `--dataset PATH --repo URL [--commit SHA] --output PATH`.
+Completed questions are checkpointed, and `--retry-failures` reruns only outputs that
+previously ended with a provider/system failure.
 
 For architectural rationale and project boundaries, see [DOCUMENT.md](DOCUMENT.md).
