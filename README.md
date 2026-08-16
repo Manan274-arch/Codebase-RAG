@@ -1,287 +1,201 @@
-# Multi-Language Codebase Q&A RAG Assistant
+# Codebase RAG
 
-This project is the retrieval, context, and generation foundation for a codebase
-question-answering RAG system. It ingests a software repository, retrieves relevant code
-plus explicitly linked context, and generates citation-aware answers from that evidence.
+A multi-language codebase question-answering system that accepts a public Git
+repository, indexes its source code, retrieves relevant chunks, and generates a
+grounded answer with validated citations.
 
-The repository currently implements provider-agnostic generation orchestration,
-deterministic citation validation, hosted inference through Groq, and a small FastAPI
-demo backend with a focused React/TypeScript frontend.
-
-## Architecture
-
-The repository is split by responsibility: `frontend/` contains only the Vite client,
-`backend/` contains only the FastAPI boundary, `src/` contains production RAG stages,
-`evaluation/` contains offline benchmarks and their frozen fixtures, and `tests/`
-mirrors those production areas. Within `src/`, acquisition/loading, chunking,
-enrichment, indexing, retrieval, generation, and end-to-end orchestration live in
-separate stage packages.
+## How it works
 
 ```text
-Repository
-    ↓
-Source Discovery
-    ↓
-LangChain Documents
-    ↓
-Language-Aware Chunking
-    ↓
-Structural Enrichment
-    ↓
-Relationship Linking
-    ↓
-Shared Code Corpus
-      /          \
-   BM25       Persistent Qdrant
- top 25      Exact Dense top 25
-      \          /
-    ↓
-Score-Free Deduplicated Candidate Union
-    ↓
-Cross-Encoder Reranking
-    ↓
-Relationship Expansion
-    ↓
-Context Construction
-Citation-Aware Evidence Bundle
-    ↓
-Citation-Aware Generation
-    ↓
-Groq API · openai/gpt-oss-20b
+Git URL + optional commit SHA
+        -> immutable cached checkout
+        -> source discovery and language-aware chunking
+        -> structural and HTTP-relationship enrichment
+        -> BM25 top 25 + Qdrant exact dense top 25
+        -> deduplicated candidate union
+        -> cross-encoder reranking
+        -> bounded relationship expansion
+        -> citation-labeled context (up to 10 chunks by default)
+        -> one Groq generation call
+        -> citation validation
+        -> answer with supporting source snippets
 ```
 
-BM25 contributes lexical matches and dense retrieval supplies the primary semantic
-signal. RRF was evaluated but is retained only as a benchmark baseline—not as part of
-the selected production path.
+The production retrieval path uses lexical and semantic search cooperatively. BM25
+finds exact identifiers and code terms; Qdrant finds semantic matches using
+`jinaai/jina-embeddings-v2-base-code`. The union creates no synthetic score. A
+`cross-encoder/ms-marco-MiniLM-L6-v2` model determines the final relevance order,
+after which explicit frontend HTTP-call/backend-route relationships may add supporting
+chunks within the final result limit.
 
-## Current capabilities
+Groq receives only the final context and question, not the repository. Citation aliases
+such as `[C1]` are assigned per question and validated before evidence is returned to
+the client.
 
-- Deterministic repository source-file discovery.
-- Multi-language UTF-8 source ingestion into LangChain `Document` objects.
-- Language-aware chunking with stable source paths, chunk indices, offsets, and lines.
-- Tree-sitter structural extraction for definitions and imports.
-- Conservative extraction of supported backend routes and outbound HTTP calls.
-- Lightweight HTTP-call ↔ backend-route relationship linking.
-- A shared retrieval representation containing structural summaries and original code.
-- Local BM25 and code-aware dense retrieval.
-- Persistent local Qdrant vector indexing with corpus/configuration fingerprints.
-- Score-free, provenance-preserving candidate union.
-- Local cross-encoder reranking.
-- Bounded one-hop relationship expansion after reranking.
-- Deterministic context construction with stable evidence IDs and query-local citations.
-- Provider-agnostic grounded generation with deterministic citation validation.
-- Hosted Groq generation using `openai/gpt-oss-20b` by default.
-- A process-local FastAPI backend that retains prepared repository sessions.
-- A responsive React/TypeScript demo for loading repositories and reading cited answers.
-- Offline retrieval evaluation with frozen fixtures and graded relevance labels.
+## Results
 
-## Retrieval design
+### Retrieval
 
-BM25 and Qdrant dense retrieval independently return their top 25 candidates. BM25
-builds its lexical statistics in memory when the corpus is loaded. Dense document
-embeddings are built separately and persisted in local Qdrant storage; query-time dense
-retrieval embeds only the query and searches the validated collection using exact cosine
-search. The
-`CandidateUnionRetriever` combines them deterministically, removes duplicate
-`source::chunk_index` identities, and records whether each candidate came from BM25,
-dense, or both, including its original branch ranks. It does not create a fused score.
+The frozen Retrieval Benchmark v2 held-out split contains 70 graded queries over a
+56-chunk corpus. It is an architecture-diagnostic benchmark used during development,
+not untouched external validation.
 
-The cross-encoder jointly scores the question and every unique candidate to determine
-the relevance order. Relationship expansion then inserts bounded, directly linked
-chunks such as the backend route associated with a retrieved frontend HTTP call.
-
-Context construction consumes that final ordered result list, deduplicates it by the
-existing canonical identity, and renders complete evidence blocks without modifying
-chunk content. A permanent canonical evidence ID uses `source::chunk_index`; the
-separate query-local citation alias uses `C1`, `C2`, and so on. An optional character
-budget admits only complete, rank-preserving blocks. Model-specific token budgeting and
-end-to-end generated-answer evaluation are not implemented yet.
-
-Generation consumes the existing `ContextBundle` without rebuilding its evidence text.
-An injected text generator receives a concise grounding prompt, and generated citation
-aliases such as `[C1]` are checked against the bundle. Unknown aliases are rejected
-rather than removed or accepted. The bundle retains the mapping from each query-local
-alias to its permanent `source::chunk_index` evidence identity.
-
-`TextGenerator` remains the provider boundary. The first concrete implementation,
-`GroqTextGenerator`, sends only the constructed prompt to Groq's hosted Chat Completions
-API and defaults to `openai/gpt-oss-20b`. Retrieval and context construction contain no
-Groq-specific logic, so another backend or model can be substituted without redesigning
-the pipeline.
-
-On Benchmark v2, branch overlap leaves roughly 38 unique candidates per query on
-average instead of the maximum 50.
-
-Persistent local mode was selected to keep the existing Python workflow. A real HNSW
-path cannot be validated in this mode: `qdrant-client` performs a NumPy full scan and
-ignores HNSW search parameters.
-HNSW remains a later server/deployment concern rather than a claimed local benchmark.
-
-## Evaluation snapshot
-
-Final held-out Benchmark v2 results after cross-encoding and relationship expansion:
+Final metrics below are measured after cross-encoder reranking and relationship
+expansion.
 
 | Candidate strategy | Hit@1 | Hit@3 | Recall@5 | nDCG@5 |
 | --- | ---: | ---: | ---: | ---: |
-| Dense | 0.8857 | 0.9571 | 0.8762 | 0.8255 |
-| RRF baseline | 0.8857 | 0.9571 | 0.8762 | 0.8255 |
-| Candidate union | 0.8857 | 0.9571 | 0.8881 | 0.8320 |
+| Dense candidates | 88.57% | 95.71% | 87.62% | 82.55% |
+| RRF candidates | 88.57% | 95.71% | 87.62% | 82.55% |
+| **BM25 + dense candidate union (selected)** | **88.57%** | **95.71%** | **88.81%** | **83.20%** |
 
-Union was selected because it preserved early ranking quality, slightly improved deeper
-recall and graded ranking, produced no measured per-query nDCG@5 regression, and
-required fewer cross-encoder candidate evaluations after deduplication. Relationship
-expansion achieved Linked Context Coverage@5 of 1.0 on all eligible held-out cases.
+| Additional retrieval check | Result |
+| --- | ---: |
+| Linked Context Coverage@5 on eligible held-out queries | 100.00% |
+| Qdrant exact vs. brute-force dense top-25 overlap | 100.00% |
+| Final nDCG@5 after Qdrant migration | 83.20% |
+| Average unique union candidates from a maximum of 50 | ~38 |
 
-Benchmark v2 has been inspected during architecture development and is therefore an
-architecture-diagnostic benchmark, not untouched external validation.
+The selected union preserved early hit rate while improving deeper recall and graded
+ranking. Persistent Qdrant exact search reproduced the old brute-force dense results;
+Qdrant was selected for persistence and index lifecycle, not for a small-corpus latency
+claim. Embedded local Qdrant performs exact full scans, so this repository does not
+claim production HNSW performance.
 
-Migration validation found identical brute-force and Qdrant-exact candidate metrics,
-top-25 identity overlap of 1.0, and unchanged final nDCG@5 of 0.8320. With only 56
-benchmark chunks, measured exact-search latency was similar to the old NumPy reference;
-Qdrant was selected for persistence and index lifecycle rather than a small-corpus speed
-claim.
-
-Reproduce the final candidate-strategy comparison with:
+Reproduce the retrieval comparisons with:
 
 ```shell
+python -m evaluation.runners.evaluate_candidate_strategies
 python -m evaluation.runners.evaluate_qdrant_migration
 ```
 
-The first real-model run may download `jinaai/jina-embeddings-v2-base-code` and
-`cross-encoder/ms-marco-MiniLM-L6-v2`; subsequent runs use the local model cache.
+### Answer generation
 
-## Project status
+The saved end-to-end comparison uses 18 manually curated questions against this public
+repository and pinned commit:
 
-Completed:
+```text
+Repository: Manan274-arch/Title-block-and-BOM-extraction-for-deciding-raw-materials
+Commit: de4a29e4d453d0695b1a2cf5d76f8285032bea70
+Benchmark: title-block-bom-e2e-v1
+```
 
-- ingestion and source discovery;
-- chunking and corpus construction;
-- structural enrichment;
-- relationship linking;
-- lexical and dense retrieval;
-- persistent Qdrant indexing and exact dense search;
-- hybrid/RRF retrieval experiments;
-- candidate-union experiments;
-- cross-encoder reranking;
-- relationship expansion;
-- deterministic citation-aware context construction;
-- provider-agnostic answer generation and citation validation;
-- hosted Groq generation with `openai/gpt-oss-20b`;
-- automatic Git acquisition and reusable end-to-end orchestration;
-- process-local FastAPI demo backend;
-- React/TypeScript/Vite single-screen demo frontend;
-- offline retrieval evaluation.
+Both systems used the same embedding model, context construction, Groq model,
+temperature, and answer-token limit. Dense-only sent exact dense top-10 directly to
+context. Final RAG used BM25+dense union, cross-encoder reranking, and relationship
+expansion.
 
-Next:
+| Metric | Dense-only | Final RAG | Difference |
+| --- | ---: | ---: | ---: |
+| Citation precision | 58.33% | **63.98%** | **+5.65 pp** |
+| Citation recall | 47.96% | **64.07%** | **+16.11 pp** |
+| Groundedness | 86.11% | **87.50%** | **+1.39 pp** |
+| Supporting-code accuracy | **88.89%** | 87.50% | -1.39 pp |
+| Unanswerable accuracy | 100.00% | 100.00% | 0.00 pp |
 
-- model-specific token budgeting;
-- end-to-end generated-answer evaluation;
+The clearest gain was evidence completeness: cross-file citation recall increased from
+36.67% to 66.67%, while cross-file citation precision increased from 56.67% to 73.33%.
+Groundedness and supporting-code accuracy are rubric-judge measurements; citation
+precision and recall are deterministic comparisons against expected supporting files.
 
-## Development and testing
+These values come from the saved evaluation artifact. The latest prompt-only citation
+instruction change has not been re-evaluated, so no improvement from that change is
+claimed here.
+
+Detailed answers, citations, retrieved chunks, context, judge records, and category
+breakdowns are available in
+[`evaluation/results/title_block_bom_de4a29e4/`](evaluation/results/title_block_bom_de4a29e4/).
+
+## Main capabilities
+
+- Public HTTPS Git acquisition with exact commit pinning and cached immutable checkouts.
+- Multi-language source discovery and UTF-8 loading.
+- Language-aware chunks with stable file, chunk, and line identities.
+- Tree-sitter definitions/imports plus conservative route and HTTP-call extraction.
+- Persistent local Qdrant indexes with corpus fingerprints and safe reuse.
+- In-memory BM25, exact dense retrieval, candidate union, and cross-encoder reranking.
+- Bounded one-hop relationship expansion.
+- Deterministic context construction and citation validation.
+- One-call Groq generation using `openai/gpt-oss-20b` by default.
+- FastAPI backend and React/TypeScript demo.
+
+Fetched repositories are treated as untrusted input. The application reads supported
+source files but never executes repository code, runs setup scripts, or installs the
+repository's dependencies.
+
+## Repository layout
+
+| Path | Responsibility |
+| --- | --- |
+| `src/ingestion/` | Git acquisition, source discovery, and loading |
+| `src/chunking/` | Language-aware chunking and source lines |
+| `src/enrichment/` | Structure, routes, HTTP calls, relationships, retrieval text |
+| `src/indexing/` | Embeddings and persistent Qdrant lifecycle |
+| `src/retrieval/` | BM25, dense search, union, reranking, expansion |
+| `src/generation/` | Context, prompting, Groq, citation validation |
+| `src/pipeline/` | Corpus and end-to-end production orchestration |
+| `backend/` | FastAPI request models and repository sessions |
+| `frontend/` | React/Vite demo |
+| `evaluation/` | Frozen benchmarks, historical baselines, and saved results |
+| `tests/` | Unit and integration tests |
+
+## Setup
 
 Python 3.11 is required.
 
-```shell
+```powershell
 python -m venv .venv
-# Windows PowerShell
 .venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Place the Groq credential in the repository-root `.env`:
+Create a repository-root `.env` file:
 
-```text
+```env
 GROQ_API_KEY=<your key>
 ```
 
-`GroqTextGenerator()` loads this file automatically when constructed; no manual shell
-environment setup is required. Existing process environment values take precedence.
-Credentials are never required for ingestion, retrieval, context construction, or
-offline tests. The local `.env` remains ignored by Git.
+The file is ignored by Git. Retrieval and offline tests do not require a Groq key.
 
-Run the manual live generation smoke test with:
+## Run the complete pipeline
 
-```shell
-python -m scripts.smoke_groq_generation
-```
-
-This sends one small synthetic `ContextBundle` through the real Groq backend and the
-normal citation-validation path. It is a connectivity and contract check, not
-end-to-end retrieval or generated-answer quality evaluation.
-
-Run the complete RAG flow directly from a public Git repository URL:
-
-```shell
-python -m scripts.run_codebase_rag --repo https://github.com/OWNER/REPOSITORY.git --question "How does the main pipeline work?"
-```
-
-Repeat `--question` to ask several questions while reusing the same prepared corpus,
-BM25 index, Qdrant collection, embedding model, and reranker. Use `--commit` with a
-full commit SHA to select an exact revision. Without it, the command resolves the
-remote default branch once and pins that SHA for the run. The URL, resolved SHA,
-checkout path, source/chunk counts, index status, answer, validated citation IDs, and
-cited evidence are printed.
-
-Repositories are cached outside tracked source code under
-`.cache/codebase-rag/repositories/`. Each immutable checkout is keyed by repository URL
-and commit SHA, and clean cached checkouts are reused. Acquisition supports public
-HTTPS Git URLs; private-repository authentication is intentionally out of scope.
-Fetched repositories are untrusted input: the application only reads supported source
-files through the existing ingestion pipeline. It never executes repository code,
-runs setup scripts, or installs repository dependencies.
-
-The full live smoke test used this exact pinned command (PowerShell backticks only wrap
-the command for readability):
+From the command line:
 
 ```powershell
 python -m scripts.run_codebase_rag `
-  --repo "https://github.com/Manan274-arch/Title-block-and-BOM-extraction-for-deciding-raw-materials.git" `
-  --commit de4a29e4d453d0695b1a2cf5d76f8285032bea70 `
-  --question "What stages does DrawingPipeline.run execute, and when does it stop early?" `
-  --question "How does BOMExtractor identify BOM columns and decide which table rows are valid?" `
-  --question "How does MaterialAggregator decide whether to derive raw materials from BOM rows or the title block, and how are quantities combined?" `
-  --question "How is application configuration organized, and how does with_output_directory change output paths?"
+  --repo "https://github.com/OWNER/REPOSITORY.git" `
+  --question "How does the main pipeline work?"
 ```
 
-Groq's token-per-minute limit may require running the same command with one question at
-a time. The repository checkout and Qdrant collection are reused across those runs.
+Add `--commit <FULL_SHA>` to evaluate an exact revision. Repeat `--question` to reuse
+the prepared corpus and indexes for several questions.
 
-The same lifecycle is available from Python:
+From Python:
 
 ```python
 from src.pipeline.codebase_rag import CodebaseRAG
 
-with CodebaseRAG.from_repository_url("https://github.com/OWNER/REPOSITORY.git") as rag:
+with CodebaseRAG.from_repository_url(
+    "https://github.com/OWNER/REPOSITORY.git"
+) as rag:
     result = rag.ask("How does the main pipeline work?")
     print(result.answer)
     print(result.citation_ids)
 ```
 
-### Phase 3 demo
+Repositories are cached under `.cache/codebase-rag/repositories/`; Qdrant data is
+stored under `.qdrant/`. Both paths are ignored by Git.
 
-Start the FastAPI backend from the repository root:
+## Run the demo
+
+Start the backend from the repository root:
 
 ```shell
 uvicorn backend.app:app --reload
 ```
 
-It exposes only:
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `GET` | `/api/health` | Confirm the process is alive. |
-| `POST` | `/api/repositories` | Acquire and prepare a repository once. |
-| `POST` | `/api/repositories/{repository_id}/ask` | Ask the prepared repository a question. |
-| `DELETE` | `/api/repositories/{repository_id}` | Close and remove the repository session. |
-
-Repository IDs are opaque and sessions exist only in this Python process. Deleting a
-session calls `CodebaseRAG.close()`, and application shutdown closes every retained
-session. This demo intentionally has no database, cross-worker synchronization,
-authentication, background queue, or deployment layer. The direct Python API above
-remains supported and unchanged.
-
-In a second terminal, start the React frontend:
+Start the frontend in a second terminal:
 
 ```shell
 cd frontend
@@ -289,50 +203,19 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. The frontend calls `http://localhost:8000` by default.
-To use a different backend during local development, create an ignored
-`frontend/.env.local` file containing:
+Open `http://localhost:5173`. The frontend uses `http://localhost:8000` by default.
 
-```text
-VITE_API_BASE_URL=http://localhost:8000
-```
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/health` | Health check |
+| `POST` | `/api/repositories` | Acquire and prepare a repository |
+| `POST` | `/api/repositories/{id}/ask` | Ask a question |
+| `DELETE` | `/api/repositories/{id}` | Release the repository session |
 
-The one-screen flow is: enter a public GitHub URL and optional commit, wait for the
-repository to be acquired and indexed, ask a question, read the cited answer, and
-expand the evidence cards to inspect source snippets and line information. Changing
-repositories releases the previous backend session. Browser state is intentionally not
-persisted across refreshes.
+Repository sessions are process-local; this demo intentionally has no authentication,
+database, background queue, or deployment layer.
 
-Each cited source card is populated directly from the validated `EvidenceItem`: it
-shows the repository-relative path, available source-line range, and the actual cited
-chunk text. Groq does not reconstruct or generate the displayed supporting code.
-
-Frontend quality checks run from `frontend/`:
-
-```shell
-npm run typecheck
-npm run test
-npm run build
-```
-
-Build or validate a persistent local index for a repository:
-
-```shell
-python -m src.indexing.build_index PATH_TO_REPOSITORY
-```
-
-The default store is `.qdrant/` and is ignored by Git. A matching corpus and embedding
-configuration reuses the collection without re-embedding. A changed or incompatible
-corpus requires an explicit rebuild:
-
-```shell
-python -m src.indexing.build_index PATH_TO_REPOSITORY --rebuild
-```
-
-`CODEBASE_RAG_QDRANT_PATH` and `CODEBASE_RAG_QDRANT_COLLECTION` can override the local
-path and collection name. Exact search is the default.
-
-Run the quality gates:
+## Quality checks
 
 ```shell
 pytest
@@ -340,36 +223,14 @@ ruff check .
 mypy
 ```
 
-Additional historical evaluation entry points remain available under
-`evaluation/runners/`. They reproduce evaluated baselines and do not define the
-production retrieval architecture.
-
-### Unseen-repository end-to-end comparison
-
-The frozen `title-block-bom-e2e-v1` evaluation contains 18 questions at commit
-`de4a29e4d453d0695b1a2cf5d76f8285032bea70`: 4 simple, 5 single-file, 5
-cross-file, 2 architecture, and 2 unanswerable. It compares the unchanged production
-pipeline with exact dense top-10 followed directly by the same context construction
-and Groq answer settings.
-
-Measured results are stored under
-`evaluation/results/title_block_bom_de4a29e4/`. Final RAG improved citation precision
-from 58.3% to 64.0%, citation recall from 48.0% to 64.1%, and groundedness from 86.1%
-to 87.5%. It did not win every metric: answer correctness was 88.9% versus 90.3%,
-supporting-code accuracy was 87.5% versus 88.9%, and the deliberately strict overall
-success rate was 33.3% versus 38.9%. Cross-file citation recall improved from 36.7% to
-66.7%, while cross-file overall success fell from 40.0% to 20.0% because several
-otherwise-correct answers missed the exact citation precision/recall thresholds.
-
-Run the saved benchmark with:
+Frontend checks:
 
 ```shell
-python -m evaluation.runners.evaluate_end_to_end --repo https://github.com/Manan274-arch/Title-block-and-BOM-extraction-for-deciding-raw-materials.git --commit de4a29e4d453d0695b1a2cf5d76f8285032bea70 --output evaluation/results/title_block_bom_de4a29e4
+cd frontend
+npm run typecheck
+npm run test
+npm run build
 ```
 
-For another public Git repository, first curate the same JSON schema with its pinned
-commit and pass it with `--dataset PATH --repo URL [--commit SHA] --output PATH`.
-Completed questions are checkpointed, and `--retry-failures` reruns only outputs that
-previously ended with a provider/system failure.
-
-For architectural rationale and project boundaries, see [DOCUMENT.md](DOCUMENT.md).
+For detailed design decisions and stage-by-stage internals, see
+[`DOCUMENT.md`](DOCUMENT.md).
