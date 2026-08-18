@@ -86,9 +86,15 @@ describe("Codebase RAG demo", () => {
     );
     await user.click(screen.getByRole("button", { name: "Ask" }));
 
-    expect(await screen.findByText(answer.answer)).toBeInTheDocument();
+    const generatedAnswer = await screen.findByRole("article", {
+      name: "Generated answer",
+    });
+    expect(generatedAnswer).toHaveTextContent(
+      "Authentication is handled by authenticate",
+    );
+    expect(generatedAnswer).toHaveTextContent("C1");
     expect(screen.getByText("Sources / Supporting Code")).toBeInTheDocument();
-    expect(screen.getByText("C1")).toBeInTheDocument();
+    expect(screen.getAllByText("C1")).toHaveLength(2);
     expect(screen.getByText("src/auth.py")).toBeInTheDocument();
     expect(screen.getByText(/Lines 10/)).toBeInTheDocument();
     expect(screen.getByText(/def authenticate\(token: str\)/)).toBeInTheDocument();

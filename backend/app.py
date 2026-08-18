@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from src.ingestion.acquisition import RepositoryAcquisitionError
 from src.pipeline.codebase_rag import CodebaseAnswer, CodebaseRAGError
 
@@ -50,6 +51,10 @@ def create_app(factory: RepositoryFactory = load_codebase_rag) -> FastAPI:
         allow_methods=["GET", "POST", "DELETE"],
         allow_headers=["Content-Type"],
     )
+
+    @application.get("/", include_in_schema=False)
+    def root() -> RedirectResponse:
+        return RedirectResponse(url="/docs")
 
     @application.get("/api/health", response_model=HealthResponse)
     def health() -> HealthResponse:
