@@ -215,6 +215,15 @@ Open `http://localhost:5173`. The frontend uses `http://localhost:8000` by defau
 Repository sessions are process-local; this demo intentionally has no authentication,
 database, background queue, or deployment layer.
 
+### Deployment resource note
+
+The backend runs SentenceTransformer embeddings, a CrossEncoder reranker, and Qdrant
+locally. In practice, this ML stack requires more than 512 MB of RAM, so the Render
+Free instance currently exits with an out-of-memory error. This is a hosting resource
+limit, not a functional problem with the RAG pipeline. Run the backend locally or on
+an instance with sufficient memory; approximately 2–4 GB of RAM is recommended for a
+practical deployment. The React frontend can still be deployed separately on Vercel.
+
 ## Quality checks
 
 ```shell

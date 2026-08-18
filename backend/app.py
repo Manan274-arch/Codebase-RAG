@@ -1,5 +1,6 @@
 """FastAPI application wrapping reusable Codebase RAG sessions."""
 
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -35,6 +36,10 @@ _LOCAL_FRONTEND_ORIGINS = (
 def create_app(factory: RepositoryFactory = load_codebase_rag) -> FastAPI:
     """Create one application with its own process-local repository registry."""
     service = RepositoryService(factory)
+    allowed_origins = list(_LOCAL_FRONTEND_ORIGINS)
+    frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
+    if frontend_url and frontend_url not in allowed_origins:
+        allowed_origins.append(frontend_url)
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
@@ -47,7 +52,7 @@ def create_app(factory: RepositoryFactory = load_codebase_rag) -> FastAPI:
     application = FastAPI(title="Codebase RAG Demo API", lifespan=lifespan)
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=list(_LOCAL_FRONTEND_ORIGINS),
+        allow_origins=allowed_origins,
         allow_methods=["GET", "POST", "DELETE"],
         allow_headers=["Content-Type"],
     )
